@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="840" viewBox="0 0 1500 840">
+<defs><marker id="power" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#cc6a16"/></marker><marker id="can" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#1672b9"/></marker><marker id="control" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#7350a4"/></marker><marker id="measure" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#138678"/></marker><marker id="safety" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#b24454"/></marker><marker id="ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#203246"/></marker></defs>
+<rect width="1500" height="840" fill="#ffffff"/>
+<text x="36" y="47" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="34" fill="#203246" font-weight="700">柜内一条支路：供电通断与采样</text>
+<text x="36" y="84" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#516477" font-weight="400">功能图 · QFDC 浮地双极接法/极性/分断能力须厂家确认 · 不以此图施工</text>
+<rect x="30" y="200" width="210" height="180" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="46" y="232" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">公共 PS1 母线</text>
+<text x="46" y="264" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">DC+</text>
+<text x="46" y="293" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">DC−</text>
+<text x="46" y="322" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">设计 0–60 V</text>
+<rect x="300" y="180" width="225" height="240" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="316" y="212" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">QFDCn 双极保护</text>
+<text x="316" y="244" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">正/负两极参考意图</text>
+<text x="316" y="273" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">准确型号接法待核对</text>
+<text x="316" y="302" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">按导线/负载协调</text>
+<rect x="600" y="200" width="180" height="125" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="616" y="232" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">KDn DC SSR</text>
+<text x="616" y="264" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">正极通断</text>
+<text x="616" y="293" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">散热 + 保护</text>
+<rect x="840" y="200" width="180" height="125" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="856" y="232" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">ISn 穿芯测流</text>
+<text x="856" y="264" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">连续导线穿孔</text>
+<text x="856" y="293" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">非串接信号口</text>
+<rect x="1170" y="200" width="290" height="220" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1186" y="232" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">Xn → DUT</text>
+<text x="1186" y="264" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">支路 DC+ / DC−</text>
+<text x="1186" y="293" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">带驱动器肢体</text>
+<text x="1186" y="322" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">端电压跨接测量</text>
+<polyline points="240,250 300,250" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="525,250 600,250" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="780,250 840,250" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="1020,250 1170,250" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="240,350 300,350" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="525,350 1170,350" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<rect x="830" y="455" width="275" height="95" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="846" y="487" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">VSn 隔离变送器</text>
+<text x="846" y="519" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">跨接输出 +/−；细线保护</text>
+<polyline points="1135,250 1135,475 1105,475" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="1115,350 1115,525 1105,525" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round"/>
+<rect x="320" y="590" width="380" height="115" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="336" y="622" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">PLC DO + 继电器 + 人工许可</text>
+<text x="336" y="654" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">普通控制 KDn；不是安全隔离</text>
+<text x="336" y="683" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">K0 → KM0 控 PS1 交流输入</text>
+<polyline points="510,590 510,470 690,470 690,325" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round" marker-end="url(#control)"/>
+<rect x="835" y="610" width="600" height="100" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="851" y="642" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">AI8 → PLC → Ethernet / 上位机</text>
+<text x="851" y="674" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">4×电压 + 4×电流；差分不等于通道隔离</text>
+<polyline points="930,325 930,430 810,430 810,660 835,660" fill="none" stroke="#138678" stroke-width="3" stroke-linejoin="round" marker-end="url(#measure)"/>
+<polyline points="970,550 970,610" fill="none" stroke="#138678" stroke-width="3" stroke-linejoin="round" marker-end="url(#measure)"/>
+<text x="36" y="760" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="400">关断 SSR / KM0 不证明端子无电；维护隔离、安全停机及回馈处理需专项设计。</text>
+<polyline points="40,800 85,800" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<text x="100" y="807" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">动力 DC</text>
+<polyline points="285,800 330,800" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<text x="345" y="807" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">CAN / 网络</text>
+<polyline points="570,800 615,800" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round" marker-end="url(#control)"/>
+<text x="630" y="807" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">普通控制</text>
+<polyline points="875,800 920,800" fill="none" stroke="#138678" stroke-width="3" stroke-linejoin="round" marker-end="url(#measure)"/>
+<text x="935" y="807" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">测量</text>
+<polyline points="1120,800 1165,800" fill="none" stroke="#b24454" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#safety)"/>
+<text x="1180" y="807" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">安全/条件接口</text>
+</svg>

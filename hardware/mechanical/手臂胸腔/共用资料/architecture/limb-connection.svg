@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="940" viewBox="0 0 1500 940">
+<defs><marker id="power" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#cc6a16"/></marker><marker id="can" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#1672b9"/></marker><marker id="control" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#7350a4"/></marker><marker id="measure" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#138678"/></marker><marker id="safety" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#b24454"/></marker><marker id="ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#203246"/></marker></defs>
+<rect width="1500" height="940" fill="#ffffff"/>
+<text x="36" y="47" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="34" fill="#203246" font-weight="700">一条支路怎样接到带驱动器的机器人肢体</text>
+<text x="36" y="84" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#516477" font-weight="400">柜端约定不是 OEM 针脚 · 不重复购买基础伺服驱动器 · 线束须防错插</text>
+<rect x="30" y="160" width="330" height="150" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="46" y="192" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">柜端动力接口 Xn</text>
+<text x="46" y="224" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">项目约定 1：DC+</text>
+<text x="46" y="253" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">项目约定 2：DC−</text>
+<text x="46" y="282" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">核对插头/导线额定</text>
+<rect x="30" y="390" width="330" height="150" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="46" y="422" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">独立 CAN 网络</text>
+<text x="46" y="454" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">项目约定 3：CAN-H</text>
+<text x="46" y="483" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">项目约定 4：CAN-L</text>
+<text x="46" y="512" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">终端/参考/屏蔽按手册</text>
+<rect x="420" y="225" width="300" height="230" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="436" y="257" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">OEM 转接线束 / 盒</text>
+<text x="436" y="289" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">逐针映射与导通核对</text>
+<text x="436" y="318" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">动力与信号可分连接器</text>
+<text x="436" y="347" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">需要时加入局部保护</text>
+<text x="436" y="376" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">不把四针口强套到总成</text>
+<polyline points="360,245 420,245" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="360,450 390,450 390,400 420,400" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<rect x="780" y="145" width="690" height="510" rx="10" fill="#f1f8f5" stroke="#c1ccd9" stroke-width="2"/>
+<text x="796" y="177" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">一个手臂 / 腿部总成</text>
+<text x="800" y="209" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="400">内部布局与保护由厂家确认；整肢体汇总测量</text>
+<polyline points="720,260 1430,260" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round"/>
+<rect x="825" y="310" width="185" height="122" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="841" y="342" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">驱动节点 1</text>
+<text x="841" y="374" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">编码器 / 电机</text>
+<text x="841" y="403" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">已集成在总成内</text>
+<polyline points="917,260 917,310" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="917,432 917,500" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round"/>
+<rect x="1040" y="310" width="185" height="122" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1056" y="342" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">驱动节点 2</text>
+<text x="1056" y="374" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">编码器 / 电机</text>
+<text x="1056" y="403" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">已集成在总成内</text>
+<polyline points="1132,260 1132,310" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="1132,432 1132,500" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round"/>
+<rect x="1255" y="310" width="185" height="122" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1271" y="342" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">驱动节点 3</text>
+<text x="1271" y="374" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">编码器 / 电机</text>
+<text x="1271" y="403" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">已集成在总成内</text>
+<polyline points="1347,260 1347,310" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="1347,432 1347,500" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="720,400 750,400 750,500 1450,500" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round"/>
+<rect x="810" y="545" width="265" height="65" rx="10" fill="#eef6fc" stroke="#c1ccd9" stroke-width="2"/>
+<text x="826" y="577" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="700">物理总线端点：终端</text>
+<rect x="1160" y="545" width="280" height="65" rx="10" fill="#eef6fc" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1176" y="577" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="700">另一物理端点：终端</text>
+<text x="810" y="642" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">图中三节点仅示例，不能逐节点都加 120 Ω。</text>
+<rect x="30" y="710" width="690" height="120" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="46" y="742" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">条件性独立接口：不能从未知针脚推断</text>
+<text x="46" y="774" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">PE、CAN 参考、屏蔽、逻辑供电、抱闸、温度等</text>
+<text x="46" y="803" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">是否已集成与供电/接地方式按 OEM 手册确定</text>
+<rect x="780" y="710" width="690" height="120" rx="10" fill="#f4f7fb" stroke="#b24454" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="796" y="742" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#b24454" font-weight="700">普通 Enable 与安全 STO 分开</text>
+<text x="796" y="774" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">按风险设计安全停机、防重启及重力支撑</text>
+<text x="796" y="803" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">无 STO 的设备需另评估安全停机方案</text>
+<polyline points="1125,710 1125,685 1455,685 1455,655" fill="none" stroke="#b24454" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#safety)"/>
+<polyline points="40,890 85,890" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<text x="100" y="897" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">动力 DC</text>
+<polyline points="285,890 330,890" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<text x="345" y="897" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">CAN / 网络</text>
+<polyline points="570,890 615,890" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round" marker-end="url(#control)"/>
+<text x="630" y="897" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">普通控制</text>
+<polyline points="875,890 920,890" fill="none" stroke="#138678" stroke-width="3" stroke-linejoin="round" marker-end="url(#measure)"/>
+<text x="935" y="897" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">测量</text>
+<polyline points="1120,890 1165,890" fill="none" stroke="#b24454" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#safety)"/>
+<text x="1180" y="897" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">安全/条件接口</text>
+</svg>

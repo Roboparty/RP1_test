@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="1040" viewBox="0 0 1500 1040">
+<defs><marker id="power" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#cc6a16"/></marker><marker id="can" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#1672b9"/></marker><marker id="control" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#7350a4"/></marker><marker id="measure" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#138678"/></marker><marker id="safety" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#b24454"/></marker><marker id="ink" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto-start-reverse"><path d="M0,0 L10,4 L0,8 Z" fill="#203246"/></marker></defs>
+<rect width="1500" height="1040" fill="#ffffff"/>
+<text x="36" y="47" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="34" fill="#203246" font-weight="700">整个平台：柜子 + 肢体 + 台架 + 上位机</text>
+<text x="36" y="84" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#516477" font-weight="400">带驱动器总成 · 四工位分配仅示例 · 功能架构，不是施工图</text>
+<rect x="25" y="115" width="300" height="660" rx="10" fill="#eef6fc" stroke="#c1ccd9" stroke-width="2"/>
+<text x="41" y="147" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">Linux 上位机侧</text>
+<rect x="45" y="170" width="260" height="120" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="61" y="202" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">Linux PC / 工控机</text>
+<text x="61" y="234" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">流程、机器人协议</text>
+<text x="61" y="263" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">数据记录与故障显示</text>
+<rect x="45" y="335" width="260" height="100" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="61" y="367" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">Ethernet / 交换机</text>
+<text x="61" y="399" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">PLC 管理与工程维护</text>
+<rect x="45" y="510" width="260" height="145" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="61" y="542" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">USB-CAN FD 接口</text>
+<text x="61" y="574" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">USBCANFD-400U</text>
+<text x="61" y="603" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">四个独立 CAN 网络</text>
+<text x="61" y="632" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">按厂家 SDK 与协议</text>
+<polyline points="175,290 175,335" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<polyline points="285,290 315,290 315,480 175,480 175,510" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<rect x="355" y="115" width="580" height="660" rx="10" fill="#f7f6fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="371" y="147" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">公共电气控制柜</text>
+<rect x="375" y="175" width="210" height="110" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="391" y="207" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">交流配电 / KM0</text>
+<text x="391" y="239" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">输入保护</text>
+<text x="391" y="268" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">切 PS1 交流输入</text>
+<rect x="625" y="175" width="290" height="110" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="641" y="207" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">PS1 可调直流源</text>
+<text x="641" y="239" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">设计 0–60 V / 60 A</text>
+<text x="641" y="268" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">一个电压、一个总限流</text>
+<polyline points="585,230 625,230" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<rect x="375" y="355" width="215" height="125" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="391" y="387" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">PS24 + PLC</text>
+<text x="391" y="419" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">24 V 控制与采集</text>
+<text x="391" y="448" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">RS485 → PS1</text>
+<text x="391" y="477" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">Ethernet ←→ PC</text>
+<polyline points="305,385 375,385" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<polyline points="590,390 610,390 610,270 625,270" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round" marker-end="url(#control)"/>
+<rect x="625" y="515" width="290" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="641" y="547" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="700">CH1 保护 + 开关 + V/I</text>
+<polyline points="770,285 770,495" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round"/>
+<polyline points="770,495 600,495 600,541 625,541" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="590,450 610,450 610,525 625,525" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round"/>
+<rect x="625" y="575" width="290" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="641" y="607" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="700">CH2 保护 + 开关 + V/I</text>
+<polyline points="770,495 600,495 600,601 625,601" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="590,450 610,450 610,585 625,585" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round"/>
+<rect x="625" y="635" width="290" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="641" y="667" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="700">CH3 保护 + 开关 + V/I</text>
+<polyline points="770,495 600,495 600,661 625,661" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="590,450 610,450 610,645 625,645" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round"/>
+<rect x="625" y="695" width="290" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="641" y="727" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="700">CH4 保护 + 开关 + V/I</text>
+<polyline points="770,495 600,495 600,721 625,721" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<polyline points="590,450 610,450 610,705 625,705" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round"/>
+<rect x="980" y="115" width="495" height="660" rx="10" fill="#f1f8f5" stroke="#c1ccd9" stroke-width="2"/>
+<text x="996" y="147" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">机器人总成：驱动器已集成</text>
+<text x="1000" y="173" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">动力与 CAN 之外的接口按 OEM 确认</text>
+<rect x="1000" y="210" width="455" height="100" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1016" y="242" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">肢体内可有多个驱动节点</text>
+<text x="1016" y="274" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">供电聚合、内部保护需核对</text>
+<text x="1016" y="303" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">柜端四路 ≠ 四个关节</text>
+<rect x="1000" y="355" width="455" height="110" rx="10" fill="#eef6fc" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1016" y="387" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">CAN0/1/2/3：四个独立网络</text>
+<text x="1016" y="419" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">各端口分别接对应 DUT</text>
+<text x="1016" y="448" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="20" fill="#203246" font-weight="400">逻辑连接概览，不把四条总线并联</text>
+<polyline points="305,580 335,580 335,320 970,320 970,405 1000,405" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<rect x="1020" y="515" width="435" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1036" y="547" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">CH1 → 手部平台（示例）</text>
+<polyline points="915,541 1020,541" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<rect x="1020" y="575" width="435" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1036" y="607" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">CH2 → 胸腔平台（示例）</text>
+<polyline points="915,601 1020,601" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<rect x="1020" y="635" width="435" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1036" y="667" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">CH3 → 腿部负载台（示例）</text>
+<polyline points="915,661 1020,661" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<rect x="1020" y="695" width="435" height="52" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="1036" y="727" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="700">CH4 → 扩展 / 备用（示例）</text>
+<polyline points="915,721 1020,721" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<rect x="25" y="805" width="710" height="135" rx="10" fill="#f4f7fb" stroke="#c1ccd9" stroke-width="2"/>
+<text x="41" y="837" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#203246" font-weight="700">机械台架 + 厂家匹配夹具</text>
+<text x="41" y="869" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">原支架 / 腿部老化平台 CAD、加工图、BOM</text>
+<text x="41" y="898" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">承载、反力矩、支撑、限位、护罩、线束固定须验证</text>
+<rect x="765" y="805" width="710" height="135" rx="10" fill="#f4f7fb" stroke="#b24454" stroke-width="2" stroke-dasharray="9 7"/>
+<text x="781" y="837" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="23" fill="#b24454" font-weight="700">安全与能量处理：方案确定后才能运动</text>
+<text x="781" y="869" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">急停/防护、安全控制、适用 STO 或切断、机械支撑</text>
+<text x="781" y="898" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="21" fill="#203246" font-weight="400">预充、残余能量、制动耗能 / 双向源按工况核算</text>
+<polyline points="400,805 400,790 1190,790 1190,775" fill="none" stroke="#203246" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#ink)"/>
+<polyline points="1175,805 1175,788 960,788 960,475 980,475" fill="none" stroke="#b24454" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#safety)"/>
+<polyline points="40,980 85,980" fill="none" stroke="#cc6a16" stroke-width="3" stroke-linejoin="round" marker-end="url(#power)"/>
+<text x="100" y="987" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">动力 DC</text>
+<polyline points="285,980 330,980" fill="none" stroke="#1672b9" stroke-width="3" stroke-linejoin="round" marker-end="url(#can)"/>
+<text x="345" y="987" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">CAN / 网络</text>
+<polyline points="570,980 615,980" fill="none" stroke="#7350a4" stroke-width="3" stroke-linejoin="round" marker-end="url(#control)"/>
+<text x="630" y="987" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">普通控制</text>
+<polyline points="875,980 920,980" fill="none" stroke="#138678" stroke-width="3" stroke-linejoin="round" marker-end="url(#measure)"/>
+<text x="935" y="987" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">测量</text>
+<polyline points="1120,980 1165,980" fill="none" stroke="#b24454" stroke-width="3" stroke-linejoin="round" stroke-dasharray="9 7" marker-end="url(#safety)"/>
+<text x="1180" y="987" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">安全/条件接口</text>
+<text x="36" y="1020" font-family="Microsoft YaHei, DengXian, sans-serif" font-size="22" fill="#203246" font-weight="400">四路共一台源：不能分别调压；容量按整肢体 DC 输入核算，不能按 4 × C25 推断。</text>
+</svg>

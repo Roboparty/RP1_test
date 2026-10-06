@@ -1,0 +1,7 @@
+# Preserve engineering assets byte-for-byte; do not normalize line endings.
+mechanical/**/cad/** binary
+mechanical/**/manufacturing/** binary
+mechanical/**/图纸/** binary
+*.pdf binary
+*.xlsx binary
+*.docx binary

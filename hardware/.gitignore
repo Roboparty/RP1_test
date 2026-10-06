@@ -1,0 +1,9 @@
+# 源压缩包与 CAD 临时文件
+*.zip
+~$*
+
+# 本地缓存与系统文件
+__pycache__/
+*.py[cod]
+.DS_Store
+Thumbs.db
