@@ -1,0 +1,116 @@
+limb: right_arm
+# Every telemetry_subject_code must already exist verbatim in the platform
+# catalog. Safety limits and motor parameters below are examples only and must
+# be replaced by approved values for the exact robot/release before real use.
+joint_mappings:
+  - joint_name: right_shoulder_pitch_joint
+    motor_index: 0
+    telemetry_subject_code: SARM-SHOULDER-PITCH
+    target_part_code: SARM
+    position_min_rad: -2.5
+    position_max_rad: 2.5
+    max_velocity_rad_s: 2.0
+    max_acceleration_rad_s2: 10.0
+  - joint_name: right_shoulder_roll_joint
+    motor_index: 1
+    telemetry_subject_code: SARM-SHOULDER-ROLL
+    target_part_code: SARM
+    position_min_rad: -2.0
+    position_max_rad: 2.0
+    max_velocity_rad_s: 2.0
+    max_acceleration_rad_s2: 10.0
+  - joint_name: right_shoulder_yaw_joint
+    motor_index: 2
+    telemetry_subject_code: SARM-SHOULDER-YAW
+    target_part_code: SARM
+    position_min_rad: -2.5
+    position_max_rad: 2.5
+    max_velocity_rad_s: 2.0
+    max_acceleration_rad_s2: 10.0
+  - joint_name: right_elbow_joint
+    motor_index: 3
+    telemetry_subject_code: SARM-ELBOW-PITCH
+    target_part_code: SARM
+    position_min_rad: -2.6
+    position_max_rad: 0.2
+    max_velocity_rad_s: 2.0
+    max_acceleration_rad_s2: 10.0
+  - joint_name: right_wrist_yaw_joint
+    motor_index: 4
+    telemetry_subject_code: SARM-WRIST-YAW
+    target_part_code: SARM
+    position_min_rad: -1.8
+    position_max_rad: 1.8
+    max_velocity_rad_s: 3.0
+    max_acceleration_rad_s2: 15.0
+  - joint_name: right_wrist_pitch_joint
+    motor_index: 5
+    telemetry_subject_code: SARM-WRIST-PITCH
+    target_part_code: SARM
+    position_min_rad: -1.8
+    position_max_rad: 1.8
+    max_velocity_rad_s: 3.0
+    max_acceleration_rad_s2: 15.0
+  - joint_name: right_wrist_roll_joint
+    motor_index: 6
+    telemetry_subject_code: SARM-WRIST-ROLL
+    target_part_code: SARM
+    position_min_rad: -2.5
+    position_max_rad: 2.5
+    max_velocity_rad_s: 3.0
+    max_acceleration_rad_s2: 15.0
+
+default_pose_rad: [0.0, 0.0, 0.0, -0.3, 0.0, 0.0, 0.0]
+
+hardware:
+  adapter_module: rp1_test.adapters.roboparty_motors
+  control_rate_hz: 200
+  # Fallback gains for non-built-in adapters. The built-in adapter uses each
+  # motor's kp/kd below.
+  kp: 20.0
+  kd: 0.5
+  transition_seconds: 2.0
+  motors:
+    - {motor_index: 0, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 1, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 20.0, kd: 0.5}
+    - {motor_index: 1, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 2, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 20.0, kd: 0.5}
+    - {motor_index: 2, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 3, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 20.0, kd: 0.5}
+    - {motor_index: 3, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 4, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 20.0, kd: 0.5}
+    - {motor_index: 4, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 5, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 8.0, kd: 0.25}
+    - {motor_index: 5, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 6, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 8.0, kd: 0.25}
+    - {motor_index: 6, interface: can0, interface_type: canfd, backend: socketcan, motor_type: LRO, motor_model: 0, motor_id: 7, master_id_offset: 0, sign: 1.0, zero_offset: 0.0, kp: 8.0, kd: 0.25}
+
+simulation:
+  # Relative to this config file, or pass --model / set RP1_DESCRIPTION_ROOT.
+  model: ""
+
+safety:
+  require_model_fingerprint: true
+
+platform:
+  base_url: http://127.0.0.1:8000
+  telemetry_stride: 10
+  outbox: .rp1-test/outbox.sqlite3
+  metric_version: 1.0.0
+  execution_context:
+    # Replace every placeholder UUID with a real platform public ID before
+    # deployment. "$RUN_STARTED_AT" is resolved from local metadata.json.
+    campaign_id: 00000000-0000-4000-8000-000000000001
+    cycle_id: 00000000-0000-4000-8000-000000000002
+    segment_id: 00000000-0000-4000-8000-000000000003
+    asset_id: 00000000-0000-4000-8000-000000000004
+    configuration_id: 00000000-0000-4000-8000-000000000005
+    test_case_version_id: 00000000-0000-4000-8000-000000000006
+    station_id: 00000000-0000-4000-8000-000000000007
+    started_at: "$RUN_STARTED_AT"
+    source_status: running
+    stage_code: RP1-SARM-REPLAY
+    stage_name: RP1 单臂轨迹回放
+    source_metadata:
+      collector: rp1-test
+
+telemetry_gaps:
+  bus_voltage: "Unavailable unless the selected motor adapter exposes DC-bus voltage."
+  vibration: "No vibration sensor is present in the current RP1 motor telemetry path."
+  speed: "Written as NaN when the selected adapter has no speed getter."
+  torque: "Written as NaN when the selected adapter has no torque/current getter."
+  temperature: "Written as NaN when the selected adapter has no temperature getter."

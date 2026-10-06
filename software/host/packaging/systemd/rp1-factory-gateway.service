@@ -1,0 +1,25 @@
+[Unit]
+Description=RP1 Factory Aging-Test Control Gateway
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=rp1-factory-gateway
+Group=rp1-factory
+WorkingDirectory=/opt/rp1-factory-hmi/gateway
+EnvironmentFile=-/etc/rp1-factory-hmi/gateway.env
+ExecStart=/opt/rp1-factory-hmi/gateway/rp1-factory-gateway --host 127.0.0.1 --port 8765
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=10
+KillSignal=SIGINT
+UMask=0007
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/rp1-factory-hmi
+AmbientCapabilities=CAP_NET_RAW
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+# Right arm: 7 motors (shoulder x3, elbow, wrist x3).
+# Update motor_id / bus fields to match your hardware before zeroing or hardware replay.
+motor_id: [1,2,3,4,5]
+motor_interface_type: ["canfd"]
+motor_interface: ["can0"]
+motor_num: [5]
+motor_type: ["LRO"]
+motor_model: [1, 1, 1, 1, 1]
+motor_zero_offset: [0.0, 0.0, 0.0, 0.0, 0.0]
+kp: [100.0, 100.0, 100.0, 100.0, 100.0]
+kd: [4.0, 4.0, 4.0, 4.0, 4.0]
+motor_sign: [1, 1, 1, 1, 1]
+joint_default_angle:
+  [0.0, 0.0, 0.0, 0.0, 0.0]
+posture_weights:
+  [0.01, 0.01, 0.01, 0.005, 0.015]

@@ -1,0 +1,11 @@
+Package: rp1-factory-hmi
+Version: @VERSION@
+Section: utils
+Priority: optional
+Architecture: @ARCHITECTURE@
+Installed-Size: @INSTALLED_SIZE@
+Maintainer: RP1 Factory Engineering <factory@example.invalid>
+Depends: iproute2, libxcb-cursor0, passwd, policykit-1
+Description: RP1 factory aging-test gateway and operator HMI
+ Standalone gateway and desktop applications for RP1 factory stations,
+ including SocketCAN policy, service integration, and operator resources.

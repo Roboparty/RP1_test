@@ -1,0 +1,20 @@
+# Root-owned policy consumed by factory-hmi-can-helper.
+allowed_interfaces:
+  - can0
+  - can1
+  - can2
+  - can3
+  - can4
+timing:
+  allowed_bitrates:
+    - 125000
+    - 250000
+    - 500000
+    - 1000000
+  allowed_dbitrates:
+    - 1000000
+    - 2000000
+    - 4000000
+    - 5000000
+  allow_classic_can: true
+  allow_can_fd: true

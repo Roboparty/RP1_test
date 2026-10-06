@@ -1,0 +1,1228 @@
+{
+  "schema_version": "1.0",
+  "source": {
+    "file": "RP1人形机器人整机可靠性测试用例方案_V1.0.docx",
+    "sha256": "66e211d8cad1296539ca8c00c4b0b342da6a87affb51ad97ec13c225b99502d1",
+    "document_version": "V1.0",
+    "imported_at": "2026-09-21T22:27:00+08:00"
+  },
+  "summary": {
+    "matrix_case_count": 19,
+    "published_count": 17,
+    "draft_count": 2
+  },
+  "cases": [
+    {
+      "case_code": "SYS-REL-001",
+      "name": "整机站立老化测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "完成F0、F1、F2基线，并保存所有关节零位、功耗、温度和噪声数据。",
+          "电池、风扇、紧固件、脚底和头部状态合格；机器人在额定地面和交付配置下运行。"
+        ],
+        "steps": [
+          "1. 以23±5 ℃环境启动，机器人进入正常站立控制，不使用外部支撑承载。",
+          "2. 每个电池周期运行3 h：每小时55 min保持主动双脚站立，5 min执行小幅重心转移和空载上肢动作；全程不得以吊挂或外部支撑承载。",
+          "3. 每台完成3个独立周期，累计有效站立9 h。每周期从95 %以上SOC开始，到3 h、SOC 10 %或BMS低电量保护三者中先到者结束，并记录完整放电曲线。",
+          "4. 周期间下电检查并自然冷却不少于30 min，采用已充满且温度合格的电池开始下一周期；充电、换电、冷却和检查不计入有效站立时间。"
+        ],
+        "monitoring_and_records": [
+          "连续记录关节跟随误差、电压、温度、通信错误和其他事件。",
+          "记录有效相关时间、计划停机、非计划停机、人工干预和更换件。",
+          "每周期在0.5 h、1 h、2 h和3 h固定姿态测量噪声、功耗和热平衡变化。"
+        ],
+        "target_duration_seconds": 32400,
+        "matrix": {
+          "matrix_name": "整机站立老化",
+          "primary_stress_or_duration": "单电池3 h×3周期，累计9 h",
+          "coverage": "24运控 28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 优先24运控 28运控 30交互",
+        "basis_and_boundary": "Fraunhofer IPA公开实测：Unitree G1静止站立2 h 49 min；智元A2官方：力控站立约3 h、A2 Lite约4.5 h。本用例单周期取3 h。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "安全吊挂 围栏 数据采集 热像或贴片温度 声级计 充电设施"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "发生不可控姿态、重复热保护、烟雾异味、电池鼓胀、关键温度越限或急停失效时立即切断安全电源。",
+          "保存故障前后至少60 s高频数据，隔离电池和样本，未经根因评审不得继续累计时间。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "3个周期均无安全零容忍事件；单周期有效站立达到3 h，累计有效站立达到9 h，计划换电与检查除外。",
+          "无不可恢复故障；试后性能满足统一判据，紧固标记无转动，线束和脚底无异常磨损。",
+          "任何相关失效均进入FRACAS，并保留发生时刻、运行阶段、配置、日志和处置记录。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-002",
+      "name": "整机行走循环老化测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "DRAFT",
+      "procedure_spec": {
+        "preconditions": [
+          "完成空载F2基线；标记脚底、关节紧固件、外壳和线束。",
+          "跑道至少含直线、左右转弯、启停及小坡度或不同摩擦面，复用16楼场地",
+          "安全吊挂不承重且不干扰自然步态。"
+        ],
+        "steps": [
+          "1. 累计目标50 km；每个电池连续行走段不超过1.5 h，并包含0.35 m/s、0.7 m/s、前行、后退或侧移能力范围内动作、左右转弯和受控停止；热换电，中间不停止。",
+          "2. 每5 km执行30次原地转向；累计姿态循环不少于400次。",
+          "3. 每10 km执行F1并检查脚底、关节间隙、零位、异常声和结构线束磨损。",
+          "4. 测量关节温度，在接近上限时停止，采用批准的冷却方式降温，并记录连续运行最高上限时间。"
+        ],
+        "monitoring_and_records": [
+          "距离、速度、步数、滑移、跌倒或吊挂接触、IMU峰值、鞋底磨损状态和能耗。",
+          "各关节温度、跟随误差、零位漂移、通信重试和过流或过温保护次数。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "整机行走循环老化",
+          "primary_stress_or_duration": "单电池连续段≤1.5 h；累计100 km及1000次姿态循环",
+          "coverage": "24运控 28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "3台 24运控*2 30交互",
+        "basis_and_boundary": "智元A2官方连续行走约1.5 h；吉尼斯公开长距离记录为106.286 km且途中换电15次。本用例取单电池≤1.5 h、累计100 km。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "闭环跑道 安全吊挂 软限位 距离计 高速视频 数据采集"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "连续3次同类步态失败、保护停机阈值越限、吊挂承重、温度持续上升或机械碰撞时暂停。",
+          "根因未闭环前不得通过降低速度或放宽保护继续。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成规定里程和循环，无不可控倒地、结构裂纹、连接松脱或关键功能丧失。",
+          "试后速度和动态稳定能力不低于基线90 %；零位、重复性、功耗和噪声满足统一判据。",
+          "关节、减速器和轴承无持续异响、卡滞或超过批准限度的间隙增长。"
+        ]
+      },
+      "deviation_notes": [
+        "矩阵要求累计100 km及1000次姿态循环，但详细步骤要求累计50 km及不少于400次姿态循环；需批准方冻结唯一口径。"
+      ]
+    },
+    {
+      "case_code": "SYS-REL-003",
+      "name": "整机带载站立与姿态保持老化测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "完成空载和额定负载F0、F1、F2基线；冻结负载质量、安装位置、重心和姿态。",
+          "负载夹具、二次防坠、电池、风扇、紧固件、脚底和头部状态合格；吊挂不得承载。"
+        ],
+        "steps": [
+          "1. 在23±5 ℃环境安装批准负载，机器人进入正常双脚站立控制，不使用外部支撑承载。",
+          "2. 每个电池周期运行3 h：每小时55 min保持带载站立，5 min执行负载下姿态保持、重心转移或小幅屈膝；负载质量和重心不得改变。",
+          "3. 每台完成3个独立周期，累计有效带载站立9 h。每周期从95 %以上SOC开始，到3 h、SOC 10 %或BMS低电量保护三者中先到者结束，并记录完整放电曲线。",
+          "4. 周期间下电检查并自然冷却不少于30 min，采用已充满且温度合格的电池开始下一周期；充电、换电、冷却和检查不计入有效运行时间。"
+        ],
+        "monitoring_and_records": [
+          "连续记录负载质量与位置、关节跟随误差、电压、温度、通信错误、吊挂接触和其他事件。",
+          "每周期在0.5 h、1 h、2 h和3 h记录姿态、噪声、功耗、热平衡以及负载夹具位移。"
+        ],
+        "target_duration_seconds": 32400,
+        "matrix": {
+          "matrix_name": "整机带载站立与姿态保持老化",
+          "primary_stress_or_duration": "单电池3 h×3周期，累计9 h",
+          "coverage": "至少3台",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台，优先覆盖24运控、28运控和30交互。",
+        "basis_and_boundary": "沿用SYS-REL-001的单电池3 h、3个独立周期和周期间隔；区别仅为全程施加批准负载。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "安全吊挂 围栏 负载夹具 二次防坠 数据采集 热像或贴片温度 声级计 充电设施"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "发生不可控姿态、负载移位或脱落、吊挂承重、重复热保护、关键温度越限或急停失效时立即停止。",
+          "保存故障前后至少60 s高频数据，隔离负载、电池和样本；未经根因评审不得继续累计时间。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "3个周期均无安全零容忍事件；单周期有效带载站立达到3 h，累计达到9 h。",
+          "无负载脱落、夹具松动、不可恢复故障或未经批准的降载；试后性能满足统一判据。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-004",
+      "name": "整机高温运行测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "电芯、BMS、显示、摄像头、音频功放、计算单元和关节允许温度均已核对。",
+          "箱内充电只有在电池与充电器供应商明确允许时执行；否则使用预充电池并记录换电。",
+          "完成23 ℃F2热基线，确认所有温度传感器校准和硬件保护有效。"
+        ],
+        "steps": [
+          "1. 机器人断电进入40±2 ℃，以不大于1 ℃/min升温；关键内部测点温度变化连续1 h不超过2 ℃后，再保持至总暴露时间不少于2 h。",
+          "2. 使用95 %以上SOC且温度合格的电池，上电后连续运行2 h；每半小时至少完成1次额定速度段运行和1次额定负载段。期间不充电、不换电。",
+          "3. 交互头部持续执行高亮度显示动态图、摄像流、麦克风采集与扬声器播放；运控头部执行等效通信和控制负载。",
+          "4. 记录降频、限矩、风扇、热保护、电池压差和剩余SOC。",
+          "5. 按不大于1 ℃/min降至23±5 ℃，恢复2 h后执行F0至F2。",
+          "6. 通过后做45±2 ℃、2h工程摸底。"
+        ],
+        "monitoring_and_records": [
+          "箱温、进排风温度、所有关键器件温度、风扇转速、功率、关节电流和控制性能。",
+          "显示亮度、坏点或闪烁、摄像帧错误、麦克风底噪、扬声器失真和网络吞吐。",
+          "保护阈值、降额起点、恢复温度和热平衡时间。"
+        ],
+        "target_duration_seconds": 7200,
+        "matrix": {
+          "matrix_name": "整机高温运行",
+          "primary_stress_or_duration": "40 ℃稳定后带电运行2 h，45℃为工程摸底",
+          "coverage": "28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 必含30自由度交互头部热最坏配置 两种头部均覆盖",
+        "basis_and_boundary": "GB/T 2423.2/IEC 60068-2-2运行试验方法； 2h为标准优选短持续时间 标准参考：GB/T 44251—2024， 竞品参考：40℃为X2的公开温度，A3为45℃ 电池允许：电池的工作温度上限：45℃"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "步入式环境箱 安全吊挂 热电偶 红外热像 数据采集 烟雾和气体监测"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "任一电芯超过供应商限制、单体压差异常增大、温度斜率不可控、烟雾异味或散热完全失效时立即停机并隔离。",
+          "不得在高温箱内以人工绕过BMS、屏蔽温度传感器或取消降额。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "40 ℃下连续运行2h无安全事件、不可恢复故障或非预期保护停机；允许的降额必须与冻结策略一致。",
+          "关键器件不超过额定温度，建议距离强制停机阈值至少5 ℃；试后满足统一性能判据。",
+          "45 ℃摸底失败只用于设计改进，不直接判定40 ℃资格失败，但安全事件必须立项。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-005",
+      "name": "整机低温启动测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "电池SOC统一为80±5 %，主电池与备电温度传感器工作正常。",
+          "机器人断电且所有舱门、头部和线缆为正常交付状态。"
+        ],
+        "steps": [
+          "1. 样本在-10±2 ℃断电放置；关键内部测点温度变化连续1 h不超过2 ℃后，再保持至低温总暴露时间不少于2 h。",
+          "2. 在箱内完成5次冷启动；每次记录按键或指令到自检完成、站立就绪和通信可用的时间。",
+          "3. 每次启动后执行F1并受控关机；第5次启动后按减载到额定的渐进工作负载运行60 min，全程禁止低温充电。",
+          "4. 确认低温充电联锁：未达到允许充电温度时不得充电；恢复到允许条件后验证正常充电启动。",
+          "5. 回到23±5 ℃，观察凝露并在干燥稳定后执行F0至F2。"
+        ],
+        "monitoring_and_records": [
+          "启动电压跌落、备电切换、启动电流、BMS告警、关节响应延迟、编码器零位和异常声。",
+          "屏幕响应、摄像头起流、麦克风和扬声器音质、镜头或面板结霜。",
+          "每次启动成功率、启动时间分布和失败恢复手段。"
+        ],
+        "target_duration_seconds": 3600,
+        "matrix": {
+          "matrix_name": "整机低温启动",
+          "primary_stress_or_duration": "-10 ℃温度稳定后保持2 h；5次启动",
+          "coverage": "28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 必含30自由度交互头部热最坏配置 两种头部均覆盖",
+        "basis_and_boundary": "GB/T 2423.1/IEC 60068-2-1低温试验方法； 2 h为标准优选短持续时间; 标准参考：GB/T 44251—2024， 电池允许：电池低温启动下限：-17 ℃ ； 竞品参考：X2与A3的公开运行温度下限都为-10℃"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "步入式低温箱 安全吊挂 预冷测温 绝缘工具 数据采集"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "电池达到低温放电下限、电压跌破保护且无法安全站立、关节卡滞或出现异常机械声时停机。",
+          "低温启动失败不得连续高频重试，应先保存波形并按供应商恢复程序处理。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "-10 ℃下5次均可安全启动并完成F1，末次60 min运行无不可恢复故障或润滑卡滞。",
+          "低温禁止充电策略正确动作；不得出现锂电池低温强充、电压反复跌落或备电失效。",
+          "恢复后满足统一判据，无凝露导致的腐蚀、短路或音像永久劣化。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-006",
+      "name": "整机高低温循环测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "样本已通过单点高温和低温资格或工程摸底，保护阈值有效。",
+          "环境箱转换速率、空间均匀度和样本热滞后已经空载验证。",
+          "接口和线束采用交付状态，不额外密封或加固。"
+        ],
+        "steps": [
+          "1. 按GB/T 2423.22试验Nb在-10 ℃与40 ℃之间循环，转换速率不大于1 ℃/min，两个端点各保持2 h，共5个循环。",
+          "2. 每个端点温度稳定后上电15 min执行F1；转换阶段保持断电。5个循环的带电功能检查累计2.5 h，不在低温端充电。",
+          "3. 第1、第3和第5循环执行完整F1；交互头部在15 min带电段持续运行显示、摄像和音频。",
+          "4. 循环期间不得擦除凝露或临时增加保温，除非安全需要且形成偏差。",
+          "5. 循环结束在标准恢复条件下放置2 h至4 h，执行F0至F2及连接器抽检。"
+        ],
+        "monitoring_and_records": [
+          "内部与外部温差、凝露位置、启动时间、温度保护、关节零位和通信掉线。",
+          "结构异响、塑料变形、密封开裂、紧固件松动、屏幕贴合和镜头起雾。",
+          "每循环的功耗、音像性能和错误码趋势。"
+        ],
+        "target_duration_seconds": 9000,
+        "matrix": {
+          "matrix_name": "整机高低温循环",
+          "primary_stress_or_duration": "-10 ℃至40 ℃，端点2 h，5循环",
+          "coverage": "28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 必含30自由度交互头部热最坏配置 两种头部均覆盖",
+        "basis_and_boundary": "GB/T 2423.22/IEC 60068-2-14试验Nb；采用优选5循环，端点暴露2 h。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "可编程步入式环境箱 安全吊挂 多点测温 远程运行和日志系统"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "电池或电子器件越过批准温度、凝露导致漏电或通信持续中断时停测。",
+          "安全恢复时先断电并保持箱门关闭至温度回升，避免额外凝露冲击。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成5循环，无安全事件、裂纹、永久变形、连接器退针、持续凝露或不可恢复故障。",
+          "端点F1通过，恢复后F2满足统一性能判据。",
+          "任何暂态故障均可从日志解释且不重复增长；重复同类暂态按相关失效处理。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-007",
+      "name": "整机湿热测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "主电池保持交付安装状态；在电池仓内或靠近电池进气位置布置湿度与凝露监测，并确认湿度读数能代表电池局部工作环境。",
+          "绝缘和接地适用项基线合格，所有舱盖、密封、透气结构为交付状态。",
+          "冻结上电条件：电池仓实测相对湿度≤75%RH、表面无凝露、电池温度在供应商允许范围内；任一条件不满足则全程断电，功能检查延后至标准环境恢复阶段。"
+        ],
+        "steps": [
+          "1. 执行25 ℃至40 ℃、相对湿度不低于93 %RH的12 h升温高湿加12 h降温高湿循环，共2循环48 h。",
+          "2. 升降温和电池仓湿度>75%RH期间保持断电且禁止充电；仅在40 ℃高湿稳定段、电池仓实测≤75%RH且无凝露时短时上电执行F1，否则延后至恢复阶段。",
+          "3. 每循环检查头部面板、镜头、麦克风孔、关节缝隙、胸腔风道、电池仓和连接器凝露。",
+          "4. 完成后在标准环境恢复2 h至4 h；先进行外观和绝缘安全检查，再上电。",
+          "5. 执行F0至F2并在24 h后复查潜在腐蚀和镜头残余雾化。"
+        ],
+        "monitoring_and_records": [
+          "箱温湿度、表面与露点差、漏电或绝缘趋势、通信和音像错误。",
+          "凝露照片、位置、持续时间、排水路径及内部水迹。",
+          "电池包外观、端子腐蚀、单体压差和自放电变化。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "整机湿热",
+          "primary_stress_or_duration": "12 h+12 h为1循环，共2循环（48 h）",
+          "coverage": "28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 两种头部均覆盖 优先交互头和最高自由度",
+        "basis_and_boundary": "IEC 60068-2-30试验Db采用12 h+12 h循环，2循环合计48 h；箱内为整机湿热环境，电池工作环境湿度25%RH～75%RH以电池仓局部实测为准。电池仓超限或有凝露时禁止上电与充电。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "湿热箱 绝缘电阻或耐压设备 漏电监测 防凝露数据采集"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "出现漏电告警、可见电弧、烟雾、箱内异常气体或电池异常时立即断电。",
+          "样本带凝露时不得直接打开带电舱体或进行充电。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "无触电、短路、异常发热、腐蚀桥接、不可恢复凝露或电池异常。",
+          "恢复后安全检查合格，F1与F2满足统一判据，摄像和显示无永久雾斑或分层。",
+          "密封、标签、胶粘和声学透气膜无翘起、脱落或性能显著下降。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-008",
+      "name": "整机高温存储后功能复测",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "整机断电，移除可拆主电池与备电；",
+          "记录塑料、胶粘、线束、显示贴合、润滑和标签初始状态。",
+          "备份配置和校准数据，禁用自动升级。"
+        ],
+        "steps": [
+          "1. 无电池机身在55±2 ℃存储16 h；升降温速率不大于1 ℃/min。",
+          "2. 主电池与备电单独按供应商上限45 ℃试验；SOC为30 %至50 %。",
+          "3. 回到23±5 ℃恢复至少4 h，确认内外温度稳定，无软化、渗漏和异味。",
+          "4. 重新安装电池，执行F0、F1、F2和一次正常充电。",
+          "5. 24 h后复查外壳、胶粘、显示、镜头、线束和电池自放电。",
+          "6. 通过后做65±2 ℃工程摸底。"
+        ],
+        "monitoring_and_records": [
+          "箱温、内部关键点温度、材料形变、胶粘位移、润滑渗漏和标签状态。",
+          "电池开路电压、压差、容量抽测、内阻和外观。",
+          "试后启动、校准保持、音像与风扇功能。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "高温存储后复测",
+          "primary_stress_or_duration": "无电池机身55 ℃存储16 h",
+          "coverage": "28运控 30交互",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 24运控 28交互 30交互",
+        "basis_and_boundary": "试验方法参考：GB/T 2423.2/IEC 60068-2-2非运行高温试验； 标准参考：T/SRI 0001—2021《移动服务机器人通用技术条件》55 ℃ 16 h为标准优选持续时间 电池允许：电池单独做储存，高温储存为无电池版本 竞品参考：X2,X3允许高温储存70 ℃"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "高温箱 电池安全存放柜 温度记录仪 F2性能设施"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "材料软化影响支撑、电池异常、异味或温度失控时终止。",
+          "试后若存在疑似电池损伤，禁止装机和充电，转入隔离评估。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "机身完成55 ℃存储且试后F0至F2合格；无永久变形、开裂、胶粘失效、润滑流失或连接退化。",
+          "电池满足其独立批准边界，无鼓胀、泄漏、保护异常，容量和内阻满足统一判据。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-009",
+      "name": "整机低温存储后功能复测",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "整机断电，电池SOC 30 %至50 %，禁用所有充电和自动唤醒。",
+          "记录显示、摄像、麦克风膜、线束、塑料和润滑状态。",
+          "制定回温防凝露流程，不在低温取出后立即开舱。"
+        ],
+        "steps": [
+          "1. 整机在−20±2 ℃存储16 h，升降温速率不大于1 ℃/min。",
+          "2. 保持样本密闭或受控回温至23±5 ℃，避免环境水汽在内部凝结。",
+          "3. 确认电芯温度高于5 ℃且达到供应商允许充电温度后，方可上电和充电。",
+          "4. 执行F0、F1、F2，一次正常放电和充电，并检查备电热插拔。",
+          "5. 24 h后复查材料脆裂、镜头起雾、连接器和电池压差。"
+        ],
+        "monitoring_and_records": [
+          "电芯和关节实际温度、回温露点差、塑料和线束脆性、润滑阻力。",
+          "启动波形、BMS保护、显示响应、摄像和音频。",
+          "容量、内阻、自放电和SOC估算偏差。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "低温存储后复测",
+          "primary_stress_or_duration": "−20 ℃存储16 h",
+          "coverage": "28运控 30交互自研",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台 两种头部和最高自由度均覆盖",
+        "basis_and_boundary": "GB/T 2423.1/IEC 60068-2-1非运行低温试验； 16 h为标准优选持续时间，按受控回温流程防凝露 标准参考：T/SRI 0001—2021《移动服务机器人通用技术条件》-20 ℃ 电池允许：电池允许-20℃储存 超过1个月 竞品参考：X2,X3允许低温储存-20 ℃"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "低温箱 绝缘包装 防凝露转移袋 温度记录仪"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "回温时发现大量凝露、绝缘异常或电池外观异常，保持断电并延长干燥。",
+          "禁止使用强制局部加热快速解冻电池或关节。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成−20 ℃存储，无材料脆裂、密封开裂、数据丢失或电池异常。",
+          "正确执行低温禁充，恢复后F0至F2满足统一判据。",
+          "无残余凝露、腐蚀、镜头雾化或音像永久失真。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-010",
+      "name": "包装振动测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "确认振动台承载、夹具模态和重心安全；电池运输状态符合适用运输规定。",
+          "非包装试验按正常固定或标准规定状态，包装试验使用量产包装和附件布局。",
+          "完成F0至F2和紧固标记，记录包装压紧力和缓冲材料。"
+        ],
+        "steps": [
+          "1. 非包装初始响应检查：5 Hz至55 Hz，扫频速率不大于1倍频程/min，位移幅值0.15 mm。",
+          "2. 按识别出的共振频率进行定频耐久；5 Hz至25 Hz含25 Hz采用0.75 mm，25 Hz至55 Hz采用0.15 mm，持续时间由评审在10、30、90 min中选择。",
+          "3. 扫频耐久：5 Hz至55 Hz，0.15 mm，不大于1倍频程/min，5个循环，三个互相垂直轴。",
+          "4. 执行最终响应检查并比较共振变化，随后F0至F2复测。",
+          "5. 包装运输随机振动按GB/T 39266表5：2 Hz 0.0005、4 Hz 0.012、18 Hz 0.012、40 Hz 0.001、200 Hz 0.0005 g²/Hz，总均方根0.604 g；默认运输等级2，90 min。"
+        ],
+        "monitoring_and_records": [
+          "台面与样本响应、共振频率、放大倍数、紧固件、连接器、结构噪声和通信状态。",
+          "包装试验记录三个方向分配、包装位移、缓冲压溃和附件碰撞。",
+          "试后关节零位、回差、跟随误差、音像连接和电池固定。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "整机振动",
+          "primary_stress_or_duration": "按GB/T 39266扫频、定频及包装随机振动",
+          "coverage": "28运控 30交互自研",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "28运控 30交互",
+        "basis_and_boundary": "GB/T 39266—2020第5章和第6.2条； 包装运输随机振动参考GB/T 4857.23。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "电动振动台 夹具 加速度计 包装固定件 远程监测"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "夹具松动、台面控制失真、样本位移、异常共振快速增长或电池固定失效时停台。",
+          "不得用额外扎带或泡棉修正量产包装，除非作为失败后的改进方案重新完整试验。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "无裂纹、断裂、永久变形、松动、连接器脱落、电池位移或危险共振。",
+          "最终响应相对初始无未解释的显著共振迁移；F0至F2满足统一判据。",
+          "包装试验后包装仍能保护产品，机器人和附件无相互碰撞损伤。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-011",
+      "name": "整机冲击测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "完成振动或单独基线，明确样本安装和电池固定状态。",
+          "夹具强度、冲击波形、速度变化和测点通过空载及带载预检。",
+          "样本关机，运动部件固定方式不改变交付结构受力。"
+        ],
+        "steps": [
+          "1. 采用半正弦冲击，峰值加速度150 m/s²，脉冲持续时间11 ms。",
+          "2. 在三个互相垂直轴的正负方向各冲击3次，共18次；每次后快速检查固定与电池状态。",
+          "3. 若风险评审选择更高等级，250 m/s²、6 ms仅作为重复冲击或工程加严条件，须重新定义装夹和判据。",
+          "4. 冲击结束后静置30 min，执行F0、F1、F2及F3重点拆检。"
+        ],
+        "monitoring_and_records": [
+          "输入与样本响应波形、峰值、脉宽、速度变化和横向运动。",
+          "电池位移、关节与头部固定、屏幕、镜头、麦克风膜、连接器和线束。",
+          "试后开机电流、传感器零偏、校准保持和异常声。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "整机冲击",
+          "primary_stress_or_duration": "150 m/s²、11 ms、18次",
+          "coverage": "28运控 30交互自研",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "28运控 30交互",
+        "basis_and_boundary": "GB/T 39266—2020第5.3条及表2；方法参考IEC 60068-2-27。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "冲击台 刚性夹具 三轴加速度计 高速采集 电池安全设施"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "夹具或电池固定松动、波形严重超差、样本结构开裂或出现电气异常时停测。",
+          "样本发生材料破坏后不得继续施加剩余冲击以换取完成次数。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "18次冲击波形有效，无结构破坏、电池或重物脱落、连接器退针和潜在短路。",
+          "F0至F2满足统一判据，关节零位和传感器偏置无不可接受变化。",
+          "任何冲击波形超差按实验室规则补做，不能用无效冲击替代合格次数。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-012",
+      "name": "热保护与降额测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "由设计方书面批准故障注入点、持续时间和硬件极限；设置独立超温断电。",
+          "确认任何堵转或风扇阻断不会让人员处于跌倒和夹挤区域。",
+          "记录正常40 ℃工况下热平衡和降额基线。"
+        ],
+        "steps": [
+          "1. 在23 ℃与40 ℃分别逐步降低一只或两只风扇转速、局部遮挡进排风，验证告警、降额和安全停机。",
+          "2. 对代表性高负载关节施加短时受控堵转或过载，持续至保护动作但不超过器件批准时间。",
+          "3. 注入温度传感器开路、短路或冻结值的可模拟故障，验证合理性检查和安全回退。",
+          "4. 恢复故障后按批准流程冷却并重启，检查是否保留故障码且不会自动反复尝试危险动作。",
+          "5. 完成F0至F2并比较热保护前后性能。"
+        ],
+        "monitoring_and_records": [
+          "温度斜率、降额起点、限矩、风扇命令与反馈、保护动作时间和最大温度。",
+          "主板、驱动、关节、电池、显示和音频功放的交叉热影响。",
+          "告警可见性、日志完整性、远程控制和安全姿态。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "热保护与降额",
+          "primary_stress_or_duration": "持续至保护动作，且不超过器件批准时间",
+          "coverage": "30交互",
+          "stage": "EVT DVT"
+        },
+        "coverage_and_samples": "30自由度交互头",
+        "basis_and_boundary": "GB/T 40013—2021异常工作和单一故障安全思想； 持续时间由保护动作时间与器件批准极限共同限定。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "EVT"
+        },
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "环境箱 可控风道阻断件 关节安全堵转夹具 故障注入 热像 远程断电"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "独立安全测温接近器件绝对上限、温升失控或机器人失稳时立即硬断电。",
+          "该用例仅允许授权工程人员执行，不纳入无人值守自动老化。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "单一故障下不发生火灾、热损伤、不可控运动或保护旁路；在硬件极限前可预测地降额或停机。",
+          "故障清除后可按规定恢复，F0至F2合格，无隐性性能损伤。",
+          "传感器异常不能被解释为低温而继续满载运行。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-013",
+      "name": "双电池与热插拔耐久测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "冻结主电池、备电、连接器和BMS版本，电芯至少覆盖两个批次。",
+          "热插拔在站立、空闲或指定安全姿态执行，不在未批准的动态步行中人工操作。",
+          "确认插拔防呆、锁止、弧光保护和人员防护。"
+        ],
+        "steps": [
+          "1. 整机带电热插拔次数N_live按“目标寿命内预计换电次数×验证覆盖系数”计算并在试验前冻结；交替覆盖低、中、高SOC以及空闲和安全站立状态。",
+          "2. 每次记录主电池拔出前后母线跌落、备电接管时间、控制器重启、姿态和通信。",
+          "3. 在累计次数的20 %、50 %、80 %和100 %节点检查连接器磨损、锁止力、温升和接触电阻，并执行F1。",
+          "4. 验证过流、短路、欠压、反接防护或机械防呆，验证低温和高温充电联锁。",
+          "5. 电池充放电循环和连接器机械插拔分别按已批准的电池寿命与连接器额定次数执行；整机只承担任务谱定义的带电热插拔次数，并做寿命后回装验证。"
+        ],
+        "monitoring_and_records": [
+          "母线1 kHz波形、备电电流、SOC估算、单体压差、接触电阻和端子温度。",
+          "重启、掉帧、关节卸力、姿态变化、BMS告警、插拔力和锁止状态。",
+          "容量、内阻、循环次数和异常批次聚类。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "双电池与热插拔",
+          "primary_stress_or_duration": "整机次数按任务谱；部件按连接器额定寿命",
+          "coverage": "24运控",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "24运控*2 主电池12包 备电12包 充电器6套",
+        "basis_and_boundary": "RP1任务谱、连接器规格书额定插拔次数及电池循环寿命；。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "电池循环架 插拔执行夹具 母线高速采集 热像 充放电设备 防火隔离"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "端子变色、熔蚀、温升异常、鼓胀、漏液、烟雾或保护失效时立即隔离。",
+          "短路测试使用限能设备和远程操作，不在整机内部直接制造不可控短路。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成冻结的N_live次整机热插拔，无非计划重启、危险姿态、电弧损伤或锁止失效；母线波形在冻结容限内。",
+          "BMS保护和充电联锁正确，错误电池或未锁止状态不得进入正常运行。",
+          "寿命后电池容量、内阻、温升和外观满足冻结规格，至少满足统一建议判据。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-014",
+      "name": "电源循环与异常恢复测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "定义正常关机、突然断电、欠压、备电接管和恢复后的安全状态。",
+          "备份文件系统和校准参数，启用启动日志、看门狗、掉电保护和数据校验。",
+          "电压扰动不得超过电池和驱动绝对额定值。"
+        ],
+        "steps": [
+          "1. 上电循环次数N_power按目标寿命、每日开关机次数和加速系数计算；正常关机、突然断电和欠压恢复的比例按实际任务谱冻结。",
+          "2. 在启动、站立、音像高负载、软件更新前后等不同阶段施加扰动；禁止在写固件关键窗口做未受控断电。",
+          "3. 在N_power的10 %、50 %和100 %节点执行F1，并校验配置、零位、日志、时钟、网络和用户数据。",
+          "4. 急停动作及复位次数N_estop按安全器件B10d或制造商额定机械寿命与任务谱计算，确认每次均须明确复位才能恢复运动。",
+          "5. 完成后执行F0至F2和存储介质健康检查。"
+        ],
+        "monitoring_and_records": [
+          "启动成功率、启动时间、母线跌落、文件系统错误、看门狗、服务重启和参数校验。",
+          "急停链路动作时间、残余运动、复位逻辑和错误告警。",
+          "交互头部显示黑屏、音频爆音、摄像起流失败和数据损坏。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "电源循环与异常恢复",
+          "primary_stress_or_duration": "次数按任务谱和安全器件B10d计算",
+          "coverage": "24运控",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "24运控* 1 30交互*1",
+        "basis_and_boundary": "启动次数按目标寿命内开关机频度计算；急停次数按安全器件B10d/制造商额定机械寿命确定"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "可编程电源 电子负载 自动上电装置 高速采集 网络故障注入"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "出现重复数据损坏、急停无法切断运动、上电即非指令动作或电源器件异常发热时停止。",
+          "不得以自动格式化或清空日志掩盖恢复失败。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成冻结的N_power次上电和N_estop次急停，无安全状态错误、不可恢复启动失败、参数丢失或文件系统损坏。",
+          "异常恢复后保持安全姿态，运动不会自动恢复；用户需明确复位。",
+          "启动时间和功耗漂移满足冻结规格，F0至F2合格。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-015",
+      "name": "轻雨防护场景",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "DRAFT",
+      "procedure_spec": {
+        "preconditions": [],
+        "steps": [],
+        "monitoring_and_records": [],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "轻雨防护场景",
+          "primary_stress_or_duration": "摆管法10 min或按选定GB/T 4208方法",
+          "coverage": "两种头部",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "",
+        "basis_and_boundary": ""
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": ""
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": []
+      },
+      "decision_rules": {
+        "pass_criteria": []
+      },
+      "deviation_notes": [
+        "源文档仅提供整机测试矩阵行，缺少前置条件、步骤、监测、通过判据及中止恢复条款。"
+      ]
+    },
+    {
+      "case_code": "SYS-REL-016",
+      "name": "整机负载行走循环老化测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "完成额定负载F2基线；冻结负载质量、安装位置、重心、夹具和防坠方式。",
+          "跑道至少含直线、左右转弯、启停及小坡度或不同摩擦面；吊挂不承重且不干扰自然步态。"
+        ],
+        "steps": [
+          "1. 累计目标50 km；每个电池连续行走段不超过1.5 h。全程施加批准负载，并包含0.35 m/s、0.7 m/s、前行、后退或侧移能力范围内动作、左右转弯和受控停止；热换电，中间不停止。",
+          "2. 每5 km执行30次原地转向；累计姿态循环不少于400次。",
+          "3. 每10 km执行F1，并检查负载夹具、防坠、脚底、关节间隙、零位、异常声和结构线束磨损。",
+          "4. 测量关节温度，在接近上限时停止，采用批准的冷却方式降温，并记录连续运行最高上限时间。"
+        ],
+        "monitoring_and_records": [
+          "记录负载质量与位置、距离、速度、步数、滑移、跌倒或吊挂接触、IMU峰值、鞋底磨损和能耗。",
+          "记录各关节温度、跟随误差、零位漂移、通信重试、过流或过温保护以及负载夹具状态。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "整机负载行走循环老化",
+          "primary_stress_or_duration": "单电池连续段≤1.5 h；累计50 km及400次姿态循环",
+          "coverage": "至少3台",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台，优先覆盖24运控、28运控和30交互。",
+        "basis_and_boundary": "沿用SYS-REL-002的跑道、单电池连续段≤1.5 h、每5 km动作检查和每10 km F1检查；全程施加批准负载，累计目标50 km。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "闭环跑道 安全吊挂 软限位 负载夹具 二次防坠 距离计 高速视频 数据采集"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "连续3次同类步态失败、负载移位、保护停机阈值越限、吊挂承重、温度持续上升或机械碰撞时暂停。",
+          "根因未闭环前不得通过减轻负载、降低速度或放宽保护继续。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成规定里程和循环，无不可控倒地、负载掉落、夹具松动、结构裂纹、连接松脱或关键功能丧失。",
+          "额定负载下试后速度和动态稳定能力不低于基线90 %；零位、重复性、功耗和噪声满足统一判据。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-017",
+      "name": "倾倒与受控跌倒测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "区分标准倾倒与动态跌倒；动态跌倒是潜在破坏性工程试验，不与标准结论混写。",
+          "机器人断电或进入批准安全状态，电池固定和头部为交付配置。",
+          "围栏清场，设置二次防护但不吸收规定的倾倒能量。"
+        ],
+        "steps": [
+          "1. 按GB/T 39266将机器人向一面或一角倾斜，抬升高度取100 mm与30°倾角对应高度中的较小者。",
+          "2. 向四个底边或相应方向各执行一次，合计最多4个方向；每次后检查电池、结构和尖锐边缘。",
+          "3. 执行F0至F2和F3重点拆检。",
+          "4. 另行工程批准后，在软垫和代表性硬地面逐级进行受控动态跌倒，先低能量后高能量，记录接触顺序。",
+          "5. 任何结构改进后重新执行最不利方向。"
+        ],
+        "monitoring_and_records": [
+          "接触速度、冲击加速度、落地点、外壳和骨架应变、关节位移、电池状态。",
+          "头部屏幕和音像模块、连接器、齿轮间隙、传感器偏置和绝缘。",
+          "跌倒检测、保护动作和动力切断时序。"
+        ],
+        "target_duration_seconds": null,
+        "matrix": {
+          "matrix_name": "倾倒与受控跌倒",
+          "primary_stress_or_duration": "100 mm或30°对应高度的较小者，4方向",
+          "coverage": "M01至M03",
+          "stage": "EVT DVT"
+        },
+        "coverage_and_samples": "24运控* 1 30交互*1 28运控*1",
+        "basis_and_boundary": "GB/T 39266—2020倾倒试验和GB/T 39785机械安全； 动态跌倒仅作分级工程摸底。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "EVT"
+        },
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "可控倾倒平台 软硬可更换地面 高速视频 电池隔离 吊挂释放装置"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "电池变形、鼓胀、泄漏、结构断裂、头部重物松脱或尖锐边暴露时终止。",
+          "发生跌倒后先隔离观察电池，未经检查不得立即充电。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "标准倾倒后无电池泄漏或脱落、危险锐边、带电暴露和不可恢复功能丧失。",
+          "F0至F2满足统一判据，动态跌倒工程项目按预先批准的可维修损伤等级判定。",
+          "任何需要更换安全关键结构件的结果不得标为无故障通过。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-020",
+      "name": "快速动态运动与跑步可靠性测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "最高速度、加/减速、转弯、路线、地面和停止距离已通过安全评审。",
+          "先完成中低速基线和逐级动态预试；吊挂不承载、围栏和急停有效。"
+        ],
+        "steps": [
+          "1. 按批准脚本执行一个30 min周期：5 min中速热身、20 min快速直行/加减速/宽半径转弯交错动作、5 min低速恢复与受控停止。",
+          "2. 周期内如需冷却、检查或吊挂承重，应暂停计时；恢复后从中断动作段继续，并保留中断记录。"
+        ],
+        "monitoring_and_records": [
+          "记录指令/实际速度、加速度、停止距离、IMU、跟随误差、温度、保护事件和高频视频/日志。"
+        ],
+        "target_duration_seconds": 1800,
+        "matrix": {
+          "matrix_name": "快速动态运动与跑步",
+          "primary_stress_or_duration": "单次30 min动态循环",
+          "coverage": "至少3台",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "至少3台；单次执行周期30 min。",
+        "basis_and_boundary": "覆盖高动态等级下的峰值动力、制动、冲击、热负荷和控制裕量。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "封闭动态场地 安全吊挂 高速视频 加速度/力采集 远程急停"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "发生跌倒、制动/急停异常、结构冲击损伤、过温或重复动态失败时立即停止。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成一次30 min动态循环；无不可控跌倒、超速、制动失效、吊挂承重或未批准降级。"
+        ]
+      },
+      "deviation_notes": []
+    },
+    {
+      "case_code": "SYS-REL-021",
+      "name": "抓取搬运与操作循环可靠性测试",
+      "asset_kind": "WHOLE_MACHINE",
+      "target_part_code": "SYS",
+      "domain": "RELIABILITY",
+      "evidence_type": "RUNTIME_AND_METRIC",
+      "enabled": true,
+      "version": "DOCX-V1.0-20260921",
+      "status": "PUBLISHED",
+      "procedure_spec": {
+        "preconditions": [
+          "工件质量、尺寸、材质、姿态、抓取点、料架位置、成功判据和重试规则已冻结。",
+          "手部/末端、视觉、力控、零位、防碰、急停和工件防坠基线合格。"
+        ],
+        "steps": [
+          "1. 按冻结脚本循环执行识别/定位、伸展、抓取、提起、就位、放置和返回待机，交错名义与额定工件。",
+          "2. 连续执行60 min；每10 min切换一次工件或抓取位姿。机器人带工件行走按SYS-REL-002执行，本用例只记录静止操作和工位内转运。"
+        ],
+        "monitoring_and_records": [
+          "记录工件、载荷、抓取位姿、循环数、成功/失败、重试、人工接管、任务耗时、关节/末端状态以及故障前后日志与视频。"
+        ],
+        "target_duration_seconds": 3600,
+        "matrix": {
+          "matrix_name": "抓取搬运与操作循环",
+          "primary_stress_or_duration": "单次60 min作业循环",
+          "coverage": "至少3台",
+          "stage": "DVT"
+        },
+        "coverage_and_samples": "28dof,感知头",
+        "basis_and_boundary": "覆盖手臂、手部/末端、视觉定位、力控、软件任务链和上肢热负荷。静止抓取/放置归本用例，带工件行走归SYS-REL-002。"
+      },
+      "stage_definitions": [
+        {
+          "stage": "DVT"
+        }
+      ],
+      "equipment_requirements": {
+        "items_text": "标准工件集 料架/工作台 质量与位姿测量 防坠夹具 视频 数据采集"
+      },
+      "metric_requirements": [],
+      "sampling_requirements": {},
+      "fault_rules": {
+        "fracas_required": true
+      },
+      "termination_rules": {
+        "items": [
+          "防坠失效、人员进入危险区、关节过载/过温或视觉/控制链不可恢复时暂停。"
+        ]
+      },
+      "decision_rules": {
+        "pass_criteria": [
+          "完成一次60 min作业循环；任务成功率和非计划干预满足统一阈值，无工件掉落、夹持/末端失效、软件卡死或未批准人工接管。"
+        ]
+      },
+      "deviation_notes": []
+    }
+  ]
+}

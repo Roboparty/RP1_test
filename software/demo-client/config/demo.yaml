@@ -1,0 +1,29 @@
+# Software integration demonstration only. No robot, SDK, or model is used.
+limb: DEMO
+joint_mappings:
+  - joint_name: demo_shoulder
+    motor_index: 0
+    telemetry_subject_code: SYS-SHOULDER-PITCH-R
+    target_part_code: SYS
+    position_min_rad: -1.0
+    position_max_rad: 1.0
+    max_velocity_rad_s: 2.0
+    max_acceleration_rad_s2: 10.0
+  - joint_name: demo_elbow
+    motor_index: 1
+    telemetry_subject_code: SYS-ELBOW-PITCH-R
+    target_part_code: SYS
+    position_min_rad: -1.0
+    position_max_rad: 1.0
+    max_velocity_rad_s: 2.0
+    max_acceleration_rad_s2: 10.0
+default_pose_rad: [0.0, 0.0]
+safety:
+  require_model_fingerprint: false
+platform:
+  base_url: http://127.0.0.1:18080
+  telemetry_stride: 1
+  metric_version: 1.0.0
+telemetry_gaps:
+  bus_voltage: Not generated in this demonstration.
+  vibration: Not generated in this demonstration.

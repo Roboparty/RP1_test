@@ -1,0 +1,14 @@
+# Dependency versions for reproducible development.
+# Apply with: python -m pip install -e ".[desktop,test]" -c constraints-tested.txt
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.4
+numpy==2.2.6
+pyroute2==0.9.6
+PyYAML==6.0.3
+uvicorn==0.52.4
+PySide6==6.11.2
+PyInstaller==6.22.2
+httpx2==2.12.0
+pytest==9.1.1
+jsonschema==4.26.0

@@ -1,0 +1,89 @@
+# RP1 下半身真机配置：双腿(6+6) + 腰(2) = 14 DoF
+# 关节/轨迹列顺序（与 outputs/biped_waist_*.npz 一致）：
+#   0-5   right_leg  hip_pitch, hip_roll, hip_yaw, knee, ankle_pitch, ankle_roll
+#   6-11  left_leg   同上
+#   12    waist_roll
+#   13    waist_yaw
+#
+# 总线约定（与 upper_body_motors.yaml 注释一致，按实机改 interface 名）：
+#   can1 = 右腿总线：motor_id 2-7 = 右腿，motor_id 1 = waist_roll
+#   can2 = 左腿总线：motor_id 2-7 = 左腿，motor_id 1 = waist_yaw
+#
+# 老化台架 / MuJoCo replay_sim_limb_traj（biped_waist）：
+#   骨盆挂在竖直滑块上（可上下），waist_yaw 焊在滑块车架上；
+#   轨迹里腰保持 0；仿真每帧把较低脚贴地来解算滑块位移。
+#   真机若机械锁死腰：kp/kd 可再降，避免和锁死冲突。
+#
+# close_chain_motor_idx：每条腿 6 电机块内的脚踝闭链下标 [长杆, 短杆]
+
+motor_interface: ["can0", "can1", "can0", "can1"]
+motor_interface_type: ["canfd", "canfd", "canfd", "canfd"]
+motor_num: [6, 6, 1, 1]
+motor_type: ["LRO", "LRO", "LRO", "LRO"]
+
+# right_leg x6 | left_leg x6 | waist_roll | waist_yaw
+motor_id: [2, 3, 4, 5, 6, 7, 2, 3, 4, 5, 6, 7, 1, 1]
+motor_model: [3, 3, 3, 3, 1, 1, 3, 3, 3, 3, 1, 1, 3, 3]
+
+motor_zero_offset:
+  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+   0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+   0.0, 0.0]
+
+kp:
+  [110.0, 110.0, 110.0, 110.0, 40.0, 40.0,
+   110.0, 110.0, 110.0, 110.0, 40.0, 40.0,
+   80.0, 80.0]
+
+kd:
+  [4.0, 4.0, 4.0, 4.0, 2.0, 2.0,
+   4.0, 4.0, 4.0, 4.0, 2.0, 2.0,
+   4.0, 4.0]
+
+motor_sign: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+
+close_chain_motor_idx: [4, 5]
+
+# 站立默认：右腿镜像站姿 + 左腿站姿 + 腰零位
+joint_default_angle:
+  [0.1, 0.0, 0.0, 0.3, -0.2, 0.0,
+   -0.1, 0.0, 0.0, -0.3, -0.2, 0.0,
+   0.0, 0.0]
+
+posture_weights:
+  [0.01, 0.01, 0.01, 0.005, 0.015, 0.05,
+   0.01, 0.01, 0.01, 0.005, 0.015, 0.05,
+   0.01, 0.01]
+
+# 量产上位机：48 V 下半身母线的主动欠压停机阈值。
+# 若台架额定电压改变，必须随台架配置版本重新验证。
+factory_hmi:
+  faults:
+    undervoltage_v: 42.0
+
+# ---- MuJoCo aging-stand fixture (replay_sim_limb_traj.py biped_waist) ----
+# CLI --base-z / --slide-down / --slide-up / --fixed-pelvis 可覆盖下列项。
+fixture_base_z: 0.78          # 滑块零位对应的骨盆高度 (m)
+fixture_slide_down: 0.35      # 相对零位最大下沉 (m)
+fixture_slide_up: 0.15        # 相对零位最大上升 (m)
+fixture_fixed_pelvis: false   # true=旧的固定骨盆；false=竖直滑块（老化台架）
+fixture_lock_waist: true      # 回放时强制 waist_roll/yaw = 0
+
+# ---- 真机踏步重力前馈（RP1-LOWER-REL-001-170801-3.csv 全长回归）----
+# τ_joint = offset + swing_L * swing_L + swing_R * swing_R  （再乘 motor_sign）
+# swing_*：膝弯曲相对 joint_default_angle，[0,1]。|spd|<0.25 样本最小二乘拟合。
+hip_roll_grav_comp:
+  enable: true
+  knee_flex_ref_rad: 1.0
+  joints:
+    # R²≈0.95
+    waist_roll:      {offset: -7.3, swing_L:  23.9, swing_R: -20.7}
+    # 支撑腿冠状载荷（抬对侧脚时最大）
+    left_hip_roll:   {offset:  6.3, swing_L:  -7.9, swing_R:  31.2}  # R²≈0.88
+    right_hip_roll:  {offset: -5.8, swing_L: -37.0, swing_R:   5.8}  # R²≈0.93
+    left_hip_pitch:  {offset:  9.5, swing_L: -16.3, swing_R:   3.8}  # R²≈0.76
+    right_hip_pitch: {offset: -7.1, swing_L:  -3.9, swing_R:  12.0}  # R²≈0.75
+    left_knee:       {offset:  6.3, swing_L: -12.6, swing_R:   4.4}  # R²≈0.88
+    right_knee:      {offset: -4.6, swing_L:  -5.5, swing_R:  10.8}  # R²≈0.86
+    left_hip_yaw:    {offset:  5.3, swing_L:  -7.3, swing_R:   9.7}  # R²≈0.63
+    right_hip_yaw:   {offset: -2.7, swing_L:  -5.1, swing_R:   2.8}  # R²≈0.73

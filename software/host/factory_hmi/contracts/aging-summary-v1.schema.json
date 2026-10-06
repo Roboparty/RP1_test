@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roboparty.local/schemas/aging-summary-v1.schema.json",
+  "title": "RP1 factory aging summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "execution_uuid", "test_id", "timing", "quality",
+    "verdict", "module_metrics", "joint_metrics"
+  ],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "execution_uuid": {"type": "string", "format": "uuid"},
+    "test_id": {"type": "string", "minLength": 1, "maxLength": 255},
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "started_at", "ended_at", "wall_seconds", "active_seconds",
+        "paused_seconds", "completed_cycles"
+      ],
+      "properties": {
+        "started_at": {"type": "string", "format": "date-time"},
+        "ended_at": {"type": "string", "format": "date-time"},
+        "wall_seconds": {"type": "number", "minimum": 0},
+        "active_seconds": {"type": "number", "minimum": 0},
+        "paused_seconds": {"type": "number", "minimum": 0},
+        "completed_cycles": {"type": "integer", "minimum": 0}
+      }
+    },
+    "quality": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sample_count", "expected_sample_count", "sample_completeness",
+        "max_gap_seconds"
+      ],
+      "properties": {
+        "sample_count": {"type": "integer", "minimum": 0},
+        "expected_sample_count": {"type": "integer", "minimum": 0},
+        "sample_completeness": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_gap_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "verdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "criteria_version", "reasons", "rules"],
+      "properties": {
+        "status": {"enum": ["passed", "failed", "blocked"]},
+        "criteria_version": {"type": "string", "minLength": 1, "maxLength": 128},
+        "reasons": {
+          "type": "array",
+          "items": {"type": "string", "maxLength": 1024}
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "result"],
+            "properties": {
+              "name": {"type": "string", "minLength": 1, "maxLength": 128},
+              "result": {"enum": ["passed", "failed", "not_evaluated"]},
+              "actual": {"type": ["number", "integer", "string", "null"]},
+              "limit": {"type": ["number", "integer", "string", "null"]},
+              "unit": {"type": "string", "maxLength": 32},
+              "detail": {"type": "string", "maxLength": 1024}
+            }
+          }
+        }
+      }
+    },
+    "module_metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/moduleMetric"}
+    },
+    "joint_metrics": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/jointMetric"}
+    }
+  },
+  "$defs": {
+    "nullableMetric": {"type": ["number", "null"]},
+    "moduleMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_name", "active_seconds", "effective_aging_hours",
+        "worst_joint", "max_temperature_rise_c", "max_torque_utilization",
+        "max_tracking_rms_rad", "fault_count"
+      ],
+      "properties": {
+        "module_name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "active_seconds": {"type": "number", "minimum": 0},
+        "effective_aging_hours": {"type": "number", "minimum": 0},
+        "worst_joint": {"type": "string", "maxLength": 255},
+        "max_temperature_rise_c": {"$ref": "#/$defs/nullableMetric"},
+        "max_torque_utilization": {"$ref": "#/$defs/nullableMetric"},
+        "max_tracking_rms_rad": {"$ref": "#/$defs/nullableMetric"},
+        "fault_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "jointMetric": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "module_name", "joint_name", "motor_id", "sample_count",
+        "sample_completeness", "max_gap_seconds", "temperature_start_c",
+        "temperature_end_c", "temperature_peak_c", "temperature_rise_c",
+        "temperature_peak_rise_c", "torque_peak_abs_nm",
+        "torque_p999_abs_nm", "torque_mean_abs_nm", "rated_torque_nm",
+        "torque_utilization", "tracking_rms_rad", "tracking_max_rad",
+        "fault_count"
+      ],
+      "properties": {
+        "module_name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "joint_name": {"type": "string", "minLength": 1, "maxLength": 255},
+        "motor_id": {"type": "integer", "minimum": 0},
+        "sample_count": {"type": "integer", "minimum": 0},
+        "sample_completeness": {"type": "number", "minimum": 0, "maximum": 1},
+        "max_gap_seconds": {"type": "number", "minimum": 0},
+        "temperature_start_c": {"$ref": "#/$defs/nullableMetric"},
+        "temperature_end_c": {"$ref": "#/$defs/nullableMetric"},
+        "temperature_peak_c": {"$ref": "#/$defs/nullableMetric"},
+        "temperature_rise_c": {"$ref": "#/$defs/nullableMetric"},
+        "temperature_peak_rise_c": {"$ref": "#/$defs/nullableMetric"},
+        "torque_peak_abs_nm": {"$ref": "#/$defs/nullableMetric"},
+        "torque_p999_abs_nm": {"$ref": "#/$defs/nullableMetric"},
+        "torque_mean_abs_nm": {"$ref": "#/$defs/nullableMetric"},
+        "rated_torque_nm": {"$ref": "#/$defs/nullableMetric"},
+        "torque_utilization": {"$ref": "#/$defs/nullableMetric"},
+        "tracking_rms_rad": {"$ref": "#/$defs/nullableMetric"},
+        "tracking_max_rad": {"$ref": "#/$defs/nullableMetric"},
+        "fault_count": {"type": "integer", "minimum": 0}
+      }
+    }
+  }
+}

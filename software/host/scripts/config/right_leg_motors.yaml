@@ -1,0 +1,21 @@
+motor_id:
+  [2, 3, 4, 5, 6, 7]
+motor_interface_type: ["canfd"]
+motor_interface: ["can0"]
+motor_num: [6]
+motor_type: ["LRO"]
+motor_model:
+  [3, 3, 3, 3, 1, 1]
+motor_zero_offset:
+  [0.0, 0.0, 0.0, 0.0, -0.669, 0.398]
+kp:
+  [110.0, 110.0, 110.0, 110.0, 40.0, 40.0]
+kd:
+  [4.0, 4.0, 4.0, 4.0, 2.0, 2.0]
+motor_sign:
+  [1, 1, 1, 1, 1, 1]
+close_chain_motor_idx: [4, 5]
+joint_default_angle:
+  [-0.1, 0.0, 0.0, -0.3, -0.2, 0.0]
+posture_weights:
+  [0.01, 0.01, 0.01, 0.005, 0.015, 0.05]

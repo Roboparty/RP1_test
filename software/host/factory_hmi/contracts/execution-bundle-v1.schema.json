@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://roboparty.local/schemas/execution-bundle-v1.schema.json",
+  "title": "RP1 factory execution bundle manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_format", "schema_version", "execution_uuid", "test_id",
+    "test_case_id", "sample_id", "bench_id", "status", "started_at",
+    "ended_at", "generated_at", "summary_path", "telemetry_path", "files"
+  ],
+  "properties": {
+    "bundle_format": {"const": "rp1-execution-bundle"},
+    "schema_version": {"const": "1.0"},
+    "execution_uuid": {"type": "string", "format": "uuid"},
+    "test_id": {"type": "string", "minLength": 1, "maxLength": 255},
+    "campaign_id": {"type": ["string", "null"], "maxLength": 255},
+    "test_case_id": {"type": "string", "minLength": 1, "maxLength": 255},
+    "test_case_version": {"type": "string", "maxLength": 64, "default": ""},
+    "sample_id": {"type": "string", "minLength": 1, "maxLength": 255},
+    "bench_id": {"type": "string", "minLength": 1, "maxLength": 255},
+    "robot_id": {"type": "string", "maxLength": 255, "default": ""},
+    "station_id": {"type": "string", "maxLength": 255, "default": ""},
+    "operator_id": {"type": "string", "maxLength": 255, "default": ""},
+    "status": {"enum": ["passed", "failed", "blocked"]},
+    "started_at": {"type": "string", "format": "date-time"},
+    "ended_at": {"type": "string", "format": "date-time"},
+    "generated_at": {"type": "string", "format": "date-time"},
+    "summary_path": {"const": "analysis/summary.json"},
+    "telemetry_path": {"const": "telemetry/raw.csv"},
+    "software": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hmi_version": {"type": "string", "maxLength": 128},
+        "firmware_version": {"type": "string", "maxLength": 128}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "config_sha256": {"$ref": "#/$defs/sha256OrEmpty"},
+        "trajectory_sha256": {"$ref": "#/$defs/sha256OrEmpty"},
+        "calibration_version": {"type": "string", "maxLength": 128}
+      }
+    },
+    "files": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["path", "role", "size_bytes", "sha256"],
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[A-Za-z0-9._/-]+$",
+            "maxLength": 512
+          },
+          "role": {
+            "enum": [
+              "telemetry", "summary", "report", "log", "config",
+              "trajectory_metadata", "other"
+            ]
+          },
+          "content_type": {"type": "string", "maxLength": 128},
+          "size_bytes": {"type": "integer", "minimum": 0},
+          "sha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "sha256OrEmpty": {"type": "string", "pattern": "^(?:[a-f0-9]{64})?$"}
+  }
+}

@@ -1,0 +1,26 @@
+# Upper body: waist (2) + left short arm (5) + right short arm (5).
+# Motors are grouped by limb bus (right_leg / left_leg / left_arm / right_arm).
+#   waist_roll_joint -> right_leg bus, motor_id 1   7
+#   waist_yaw_joint  -> left_leg  bus, motor_id 1    6
+#   left arm x5      -> left_arm  bus, motor_id 1-5    5
+#   right arm x5     -> right_arm bus, motor_id 1-     4
+#
+# Joint order (idx): waist_roll, waist_yaw, L shoulder..wrist, R shoulder..wrist
+# Update motor_interface to match your hardware CAN layout.
+
+motor_interface: ["can0", "can1", "can2", "can3"]
+motor_interface_type: ["canfd", "canfd", "canfd", "canfd"]
+motor_num: [1, 1, 5, 5]
+
+# right_leg(1) | left_leg(1) | left_arm(5) | right_arm(5)
+motor_id: [1, 1, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5]
+motor_type: ["LRO", "LRO", "LRO", "LRO"]
+motor_model: [3, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+motor_zero_offset: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+kp: [80.0, 80.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0, 40.0]
+kd: [4.0, 4.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
+motor_sign: [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+joint_default_angle:
+  [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+posture_weights:
+  [0.01, 0.01, 0.01, 0.01, 0.01, 0.005, 0.015, 0.01, 0.01, 0.01, 0.005, 0.015]

@@ -1,0 +1,40 @@
+# Generic production defaults. Product-specific electrical and joint limits
+# must override these values in the selected motor YAML after validation.
+factory_hmi:
+  control_rate_hz: 200
+  can:
+    bitrate: 1000000
+    dbitrate: 5000000
+    fd: true
+    brs: true
+    allowed_bitrates: [125000, 250000, 500000, 1000000]
+    allowed_dbitrates: [1000000, 2000000, 4000000, 5000000]
+    allow_classic_can: true
+    allow_can_fd: true
+  safety:
+    max_frame_delta_rad: 0.25
+    max_velocity_rad_s: 8.0
+    max_first_frame_delta_rad: 0.75
+  faults:
+    stale_seconds: 2.0
+    tracking_error_rad: 0.5
+    overtemperature_c: 85.0
+    high_torque_nm: 35.0
+    high_torque_seconds: 2.0
+    temperature_rise_c: 10.0
+    temperature_window_s: 30.0
+    heartbeat_stale_seconds: 0.5
+
+# Factory quality criteria are versioned independently from safety limits.
+# Product station YAML files must override duration, cycles and rated torque
+# after validation by manufacturing engineering.
+factory_hmi_acceptance:
+  criteria_version: generic-v1
+  required_active_seconds: 0
+  required_cycles: 0
+  min_sample_completeness: 0.95
+  max_gap_seconds: 0.20
+  max_temperature_rise_c: 30.0
+  max_torque_p999_utilization: 1.0
+  max_tracking_rms_rad: 0.50
+  rated_torque_nm: {}

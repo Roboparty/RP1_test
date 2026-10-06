@@ -1,0 +1,16 @@
+# Right 5-DoF leg without hip_pitch (motor id 2 is reserved for waist_hip).
+# Joint order: hip_roll, hip_yaw, knee, ankle_pitch, ankle_roll.
+
+motor_id: [3, 4, 5, 6, 7]
+motor_interface_type: ["canfd"]
+motor_interface: ["can0"]
+motor_num: [5]
+motor_type: ["LRO"]
+motor_model: [3, 3, 3, 1, 1]
+motor_zero_offset: [2.6157, -2.7541, 0.0723, 0.4880, -0.7630]
+kp: [110.0, 110.0, 110.0, 40.0, 40.0]
+kd: [4.0, 4.0, 4.0, 2.0, 2.0]
+motor_sign: [1, 1, 1, 1, 1]
+close_chain_motor_idx: [3, 4]
+joint_default_angle: [0.0, 0.0, 0.3, -0.2, 0.0]
+posture_weights: [0.01, 0.01, 0.005, 0.015, 0.05]

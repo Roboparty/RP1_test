@@ -1,0 +1,19 @@
+apiVersion: 1
+
+datasources:
+  - name: RP1 Telemetry
+    uid: rp1-influxdb
+    type: influxdb
+    access: proxy
+    url: $INFLUX_URL
+    isDefault: true
+    editable: false
+    version: 1
+    jsonData:
+      version: Flux
+      organization: $INFLUX_ORG
+      defaultBucket: $INFLUX_BUCKET
+      tlsSkipVerify: false
+      timeInterval: 1s
+    secureJsonData:
+      token: $INFLUX_TOKEN

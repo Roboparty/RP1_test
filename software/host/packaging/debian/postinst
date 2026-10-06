@@ -1,0 +1,68 @@
+#!/bin/sh
+set -e
+
+case "${1:-}" in
+    configure)
+        if ! getent group rp1-factory >/dev/null 2>&1; then
+            groupadd --system rp1-factory
+        fi
+        if ! getent passwd rp1-factory-gateway >/dev/null 2>&1; then
+            useradd --system --gid rp1-factory \
+                --home-dir /var/lib/rp1-factory-hmi \
+                --shell /usr/sbin/nologin \
+                rp1-factory-gateway
+        fi
+
+        install -d -o root -g rp1-factory -m 0750 /etc/rp1-factory-hmi
+        install -d -o rp1-factory-gateway -g rp1-factory -m 0750 /etc/rp1-factory-hmi/secrets
+        install -d -o root -g rp1-factory -m 0750 /etc/rp1-factory-hmi/stations
+        install -d -o root -g rp1-factory -m 2770 /var/lib/rp1-factory-hmi
+        install -d -o root -g rp1-factory -m 2770 /var/lib/rp1-factory-hmi/trajectories
+        install -d -o root -g rp1-factory -m 2770 /var/lib/rp1-factory-hmi/records
+        install -d -o root -g rp1-factory -m 2770 /var/lib/rp1-factory-hmi/executions
+        install -d -o root -g rp1-factory -m 2770 /var/lib/rp1-factory-hmi/exports
+        install -d -o rp1-factory-gateway -g rp1-factory -m 0750 /var/lib/rp1-factory-hmi/sync
+
+        for database in \
+            /var/lib/rp1-factory-hmi/sync/outbox.sqlite3 \
+            /var/lib/rp1-factory-hmi/sync/outbox.sqlite3-wal \
+            /var/lib/rp1-factory-hmi/sync/outbox.sqlite3-shm
+        do
+            if [ -e "$database" ]; then
+                chown rp1-factory-gateway:rp1-factory "$database"
+                chmod 0660 "$database"
+            fi
+        done
+
+        for config in \
+            /etc/rp1-factory-hmi/gateway.env \
+            /etc/rp1-factory-hmi/uploader.env \
+            /etc/rp1-factory-hmi/can-policy.yaml \
+            /etc/rp1-factory-hmi/station_defaults.yaml \
+            /etc/rp1-factory-hmi/stations/*.yaml
+        do
+            if [ -e "$config" ]; then
+                chown root:rp1-factory "$config"
+                chmod 0640 "$config"
+            fi
+        done
+
+        chown root:root /usr/lib/rp1-factory-hmi/factory-hmi-can-helper
+        chmod 0755 /usr/lib/rp1-factory-hmi/factory-hmi-can-helper
+
+        if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+            systemctl daemon-reload >/dev/null 2>&1 || true
+            systemctl try-reload-or-restart polkit.service >/dev/null 2>&1 || true
+            systemctl enable rp1-factory-gateway.service >/dev/null 2>&1 || true
+            systemctl enable rp1-factory-uploader.service >/dev/null 2>&1 || true
+            if systemctl is-active --quiet rp1-factory-gateway.service; then
+                systemctl try-restart rp1-factory-gateway.service >/dev/null 2>&1 || true
+            else
+                systemctl start rp1-factory-gateway.service >/dev/null 2>&1 || true
+            fi
+            systemctl try-restart rp1-factory-uploader.service >/dev/null 2>&1 || true
+        fi
+        ;;
+esac
+
+exit 0

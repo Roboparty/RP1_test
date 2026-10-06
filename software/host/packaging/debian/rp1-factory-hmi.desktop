@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=RP1 Factory HMI
+Comment=Operate and monitor an RP1 factory aging station
+Exec=/opt/rp1-factory-hmi/desktop/rp1-factory-desktop
+Icon=rp1-factory-hmi
+Terminal=false
+Categories=Utility;Engineering;
+StartupNotify=true

@@ -1,0 +1,15 @@
+# Left 7-DoF arm: shoulder x3, elbow, wrist x3.
+# Update motor_zero_offset after set_zero on this arm.
+
+motor_id: [1, 2, 3, 4, 5, 6, 7]
+motor_interface_type: ["canfd"]
+motor_interface: ["can0"]
+motor_num: [7]
+motor_type: ["LRO"]
+motor_model: [2, 1, 1, 1, 1, 0, 0]
+motor_zero_offset: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+kp: [60.0, 60.0, 40.0, 60.0, 40.0, 40.0, 40.0]
+kd: [3.0, 3.0, 2.0, 3.0, 2.0, 2.0, 2.0]
+motor_sign: [1, 1, 1, 1, 1, 1, 1]
+joint_default_angle: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+posture_weights: [0.01, 0.01, 0.01, 0.005, 0.015, 0.015, 0.02]

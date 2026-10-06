@@ -1,0 +1,201 @@
+name: rp1-test
+
+x-api-env: &api-env
+  APP_ENV: development
+  AUTH_MODE: session
+  DATABASE_URL: postgresql+psycopg://${RP1_APP_USER}:${RP1_APP_PASSWORD}@postgres:5432/${POSTGRES_DB}
+  WORKER_USER_PUBLIC_ID: 00000000-0000-7000-8000-000000000001
+  SERVICE_API_KEY_HMAC_SECRET: ${SERVICE_API_KEY_HMAC_SECRET}
+  INFLUX_ENABLED: "true"
+  INFLUX_URL: http://influxdb:8086
+  INFLUX_ORG: ${INFLUX_ORG}
+  INFLUX_BUCKET: ${INFLUX_BUCKET}
+  INFLUX_TOKEN: ${INFLUX_TOKEN}
+
+x-influx-env: &influx-env
+  INFLUX_URL: http://influxdb:8086
+  INFLUX_ORG: ${INFLUX_ORG}
+  INFLUX_BUCKET: ${INFLUX_BUCKET}
+  INFLUX_TOKEN: ${INFLUX_TOKEN}
+  INFLUX_ADMIN_USERNAME: ${INFLUX_ADMIN_USERNAME}
+  INFLUX_ADMIN_PASSWORD: ${INFLUX_ADMIN_PASSWORD}
+  INFLUX_RETENTION_SECONDS: ${INFLUX_RETENTION_SECONDS:-2592000}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      RP1_APP_USER: ${RP1_APP_USER}
+      RP1_APP_PASSWORD: ${RP1_APP_PASSWORD}
+      RP1_READONLY_USER: ${RP1_READONLY_USER}
+      RP1_READONLY_PASSWORD: ${RP1_READONLY_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-15432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/docker-entrypoint-initdb.d:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: ./database
+    environment:
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      RP1_APP_USER: ${RP1_APP_USER}
+      RP1_READONLY_USER: ${RP1_READONLY_USER}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  influxdb:
+    image: ${INFLUX_IMAGE:-influxdb:2.9.0}
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${INFLUX_PORT:-18086}:8086"
+    volumes:
+      - influx-data:/var/lib/influxdb2
+      - influx-config:/etc/influxdb2
+    healthcheck:
+      test: [CMD, influx, ping, --host, http://localhost:8086]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  influx-init:
+    image: python:3.12-slim
+    environment: *influx-env
+    volumes:
+      - ./influxdb/scripts:/scripts:ro
+    command: [python, /scripts/init.py, --wait-seconds, "45"]
+    depends_on:
+      influxdb:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: ./service
+    restart: unless-stopped
+    environment:
+      <<: *api-env
+      SEED_ADMIN_USERNAME: ${SEED_ADMIN_USERNAME}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD}
+      AUTH_COOKIE_SECURE: "false"
+      CORS_ORIGINS: http://localhost:13000,http://127.0.0.1:13000
+    ports:
+      - "127.0.0.1:${API_PORT:-18080}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/readyz')"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  worker:
+    build: ./service
+    restart: unless-stopped
+    environment: *api-env
+    command: [python, -m, app.services.worker]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  influx-worker:
+    build: ./service
+    restart: unless-stopped
+    environment: *api-env
+    command: [python, -m, app.services.influx_worker]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      influx-init:
+        condition: service_completed_successfully
+
+  grafana:
+    image: ${GRAFANA_IMAGE:-grafana/grafana:13.2.3}
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_AUTO_UPDATE: "false"
+      INFLUX_URL: http://influxdb:8086
+      INFLUX_ORG: ${INFLUX_ORG}
+      INFLUX_BUCKET: ${INFLUX_BUCKET}
+      INFLUX_TOKEN: ${INFLUX_TOKEN}
+    ports:
+      - "127.0.0.1:${GRAFANA_PORT:-13000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      influx-init:
+        condition: service_completed_successfully
+
+  bootstrap-demo:
+    profiles: [demo]
+    build: ./service
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    environment:
+      <<: *api-env
+      DATABASE_URL: postgresql+psycopg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./.runtime:/runtime
+      - ./database/seeds:/seeds:ro
+    command: [python, scripts/bootstrap_demo.py, --output, /runtime/context.json]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  demo:
+    profiles: [demo]
+    build:
+      context: .
+      dockerfile: Demo.Dockerfile
+    user: "${LOCAL_UID:-1000}:${LOCAL_GID:-1000}"
+    volumes:
+      - ./.runtime:/runtime
+    command:
+      - python
+      - -m
+      - rp1_demo
+      - demo
+      - --config
+      - /opt/demo-client/config/demo.yaml
+      - --context
+      - /runtime/context.json
+      - --output-dir
+      - /runtime/runs
+      - --duration
+      - "12"
+      - --sample-rate
+      - "20"
+      - --pause
+      - "4:2"
+      - --enqueue
+      - --upload
+      - --outbox
+      - /runtime/outbox.sqlite3
+      - --base-url
+      - http://api:8000
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  influx-data:
+  influx-config:
+  grafana-data:

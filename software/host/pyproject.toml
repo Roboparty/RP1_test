@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rp1-factory-hmi"
+version = "0.1.0"
+description = "RP1 production aging-test control gateway and desktop HMI"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "fastapi",
+  "numpy",
+  "pydantic",
+  "pyroute2",
+  "PyYAML",
+  "uvicorn[standard]",
+]
+
+[project.optional-dependencies]
+desktop = ["PySide6"]
+build = ["PyInstaller"]
+test = ["httpx2", "pytest", "jsonschema"]
+
+[project.scripts]
+rp1-factory-gateway = "factory_hmi.gateway.__main__:main"
+rp1-factory-hmi = "factory_hmi.desktop.__main__:main"
+rp1-factory-can-helper = "factory_hmi.can_helper:main"
+rp1-factory-uploader = "factory_hmi.uploader.__main__:main"
+
+[tool.setuptools.packages.find]
+include = ["factory_hmi*", "scripts"]
+
+[tool.setuptools.package-data]
+factory_hmi = [
+  "config/*.yaml",
+  "contracts/*.json",
+  "desktop/assets/*.png",
+  "desktop/assets/*.qss",
+]
+scripts = ["config/*.yaml"]

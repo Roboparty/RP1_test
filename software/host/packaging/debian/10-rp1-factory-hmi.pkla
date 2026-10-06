@@ -1,0 +1,6 @@
+[Allow RP1 Factory HMI CAN configuration]
+Identity=unix-group:rp1-factory;unix-user:rp1-factory-gateway
+Action=com.rp1.factory-hmi.configure-can
+ResultAny=yes
+ResultInactive=yes
+ResultActive=yes

@@ -1,0 +1,15 @@
+# Waist + hip_pitch group (4 motors).
+# Groups 0 and 2 share can0; groups 1 and 3 share can1.
+
+motor_interface: ["can0", "can1", "can0", "can1"]
+motor_interface_type: ["canfd", "canfd", "canfd", "canfd"]
+motor_num: [1, 1, 1, 1]
+motor_type: ["LRO", "LRO", "LRO", "LRO"]
+motor_id: [1, 1, 2, 2]
+motor_model: [3, 3, 3, 3]
+motor_zero_offset: [0.0, 0.0, 0.0, 0.0]
+kp: [80.0, 80.0, 110.0, 110.0]
+kd: [4.0, 4.0, 4.0, 4.0]
+motor_sign: [1, 1, 1, 1]
+joint_default_angle: [0.0, 0.0, 0.1, -0.1]
+posture_weights: [0.01, 0.01, 0.01, 0.01]

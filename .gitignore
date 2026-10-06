@@ -1,0 +1,22 @@
+# Local secrets and generated artifacts
+**/.env
+**/.env.local
+**/.runtime/
+**/.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/.ruff_cache/
+**/*.pyc
+**/*.egg-info/
+**/runs/
+**/outputs/
+**/output/
+**/.rp1-test/
+**/.rp1-demo/
+**/build/
+**/dist/
+**/*.spec
+**/*.deb
+**/*.so
+**/*.sqlite3
+**/*.dump

@@ -1,0 +1,23 @@
+[Unit]
+Description=RP1 factory execution-bundle uploader
+After=network-online.target rp1-factory-gateway.service
+Wants=network-online.target
+ConditionPathExists=/etc/rp1-factory-hmi/secrets/machine-token
+
+[Service]
+Type=simple
+User=rp1-factory-gateway
+Group=rp1-factory
+EnvironmentFile=/etc/rp1-factory-hmi/gateway.env
+EnvironmentFile=-/etc/rp1-factory-hmi/uploader.env
+ExecStart=/opt/rp1-factory-hmi/uploader/rp1-factory-uploader
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/rp1-factory-hmi
+
+[Install]
+WantedBy=multi-user.target
