@@ -50,13 +50,54 @@ class FeedbackWatchdog:
         self.states = [_State(changed_at=now) for _ in motors]
         self.fault: str | None = None
 
-    def check(self, command: np.ndarray, *, elapsed_s: float) -> bool:
+    def check(
+        self,
+        command: np.ndarray,
+        *,
+        elapsed_s: float,
+        positions: np.ndarray | None = None,
+    ) -> bool:
+        if self.fault is not None:
+            return False
         now = self.clock()
         values = np.asarray(command, dtype=np.float64).reshape(-1)
+        if values.shape != (len(self.motors),) or not np.all(np.isfinite(values)):
+            self.fault = "invalid motor command"
+            return False
+        observed = None if positions is None else np.asarray(positions, dtype=np.float64)
+        if observed is not None and observed.shape != values.shape:
+            raise ValueError("feedback positions must match the motor command")
         for index, (motor, mapping, state) in enumerate(
             zip(self.motors, self.mappings, self.states)
         ):
-            position = float(motor.get_position())
+            try:
+                position = (
+                    float(motor.get_position()) if observed is None else float(observed[index])
+                )
+            except Exception as exc:
+                self.fault = f"{mapping.joint_name}: position feedback read failed"
+                self.event_sink(
+                    {
+                        "type": "feedback_invalid",
+                        "elapsed_s": float(elapsed_s),
+                        "joint_name": mapping.joint_name,
+                        "motor_index": mapping.motor_index,
+                        "reason": type(exc).__name__,
+                    }
+                )
+                return False
+            if not np.isfinite(position):
+                self.fault = f"{mapping.joint_name}: non-finite position feedback"
+                self.event_sink(
+                    {
+                        "type": "feedback_invalid",
+                        "elapsed_s": float(elapsed_s),
+                        "joint_name": mapping.joint_name,
+                        "motor_index": mapping.motor_index,
+                        "reason": "non-finite position",
+                    }
+                )
+                return False
             try:
                 raw_error_id = float(motor.get_error_id())
             except Exception:

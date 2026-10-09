@@ -52,6 +52,24 @@ class FakeMotor:
 MAPPING = JointMapping("j0", 0, "SARM-SHOULDER-PITCH", "SARM")
 
 
+def safety_config(mappings=None, default_pose=None):
+    selected = mappings or [MAPPING]
+    return {
+        "limb": "test",
+        "default_pose_rad": default_pose or [0.0] * len(selected),
+        "joint_mappings": [
+            {
+                **mapping.__dict__,
+                "position_min_rad": -2.0,
+                "position_max_rad": 2.0,
+                "max_velocity_rad_s": 20.0,
+                "max_acceleration_rad_s2": 1000.0,
+            }
+            for mapping in selected
+        ],
+    }
+
+
 def test_watchdog_emits_error_id_as_event():
     motor = FakeMotor()
     motor.error_id = 9
@@ -107,6 +125,7 @@ def test_runner_defaults_to_200hz_and_disables(tmp_path):
         [MAPPING],
         load_trajectory(path),
         default_pose=np.asarray([0.0]),
+        safety_config=safety_config(),
         clock=clock,
         sleep=clock.sleep,
         telemetry_sink=telemetry.append,

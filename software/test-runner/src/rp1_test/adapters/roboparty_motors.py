@@ -7,6 +7,7 @@ The SDK is discovered from the normal Python environment first, then from
 from __future__ import annotations
 
 import importlib
+import math
 import os
 import sys
 from dataclasses import dataclass
@@ -96,6 +97,12 @@ def load_motor_configs(config: dict[str, Any]) -> list[MotorConfig]:
         raise ValueError("hardware.motors motor_index must be contiguous from zero")
     if len(result) != len(load_joint_mappings(config)):
         raise ValueError("hardware.motors count must match joint_mappings")
+    if any(
+        not math.isfinite(value)
+        for item in result
+        for value in (item.sign, item.zero_offset, item.kp, item.kd)
+    ):
+        raise ValueError("hardware motor sign/zero_offset/kp/kd must be finite")
     if any(item.sign == 0.0 for item in result):
         raise ValueError("hardware motor sign must be non-zero")
     if any(item.kp < 0.0 or item.kd < 0.0 for item in result):
@@ -167,19 +174,23 @@ def _create_driver(motors_py: Any, item: MotorConfig) -> Any:
 
 
 def create_motors(config: dict[str, Any]) -> list[RoboPartyMotor]:
+    motor_configs = load_motor_configs(config)
     motors_py = import_motors_py()
     motors: list[RoboPartyMotor] = []
+    drivers = []
     try:
-        for item in load_motor_configs(config):
+        for item in motor_configs:
             driver = _create_driver(motors_py, item)
+            drivers.append(driver)  # Track before init/mode switching can fail.
             driver.init_motor()
             driver.set_motor_control_mode(motors_py.MotorControlMode.MIT)
             motors.append(RoboPartyMotor(driver, item))
-    except Exception:
-        for motor in motors:
+    except BaseException as exc:
+        for driver in reversed(drivers):
             try:
-                motor.disable()
-            except Exception:
-                pass
+                driver.deinit_motor()
+            except BaseException as cleanup_error:
+                if hasattr(exc, "add_note"):
+                    exc.add_note(f"Motor initialization rollback failed: {cleanup_error}")
         raise
     return motors

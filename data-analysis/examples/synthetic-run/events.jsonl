@@ -1,0 +1,4 @@
+{"type":"RUN_STARTED","elapsed_s":0,"source_kind":"synthetic"}
+{"type":"PAUSED","elapsed_s":3,"source_kind":"synthetic"}
+{"type":"RESUMED","elapsed_s":5,"source_kind":"synthetic"}
+{"type":"RUN_FINISHED","elapsed_s":8,"source_kind":"synthetic"}

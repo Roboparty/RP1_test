@@ -2,3 +2,4 @@
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 *.png binary
+LICENSES/CC-BY-SA-4.0.txt whitespace=-blank-at-eof

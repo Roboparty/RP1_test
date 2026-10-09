@@ -1,6 +1,8 @@
 import sys
 from types import SimpleNamespace
 
+import pytest
+
 from rp1_test.adapters.roboparty_motors import create_motors
 
 
@@ -92,3 +94,87 @@ def test_builtin_adapter_initializes_mit_and_wraps_feedback(monkeypatch):
     assert motor.get_error_id() == 0
     motor.disable()
     assert driver.disabled
+
+
+def adapter_config(count=2):
+    return {
+        "joint_mappings": [
+            {
+                "joint_name": f"j{index}",
+                "motor_index": index,
+                "telemetry_subject_code": f"SARM-J{index}",
+                "target_part_code": "SARM",
+            }
+            for index in range(count)
+        ],
+        "hardware": {
+            "motors": [
+                {
+                    "motor_index": index,
+                    "interface": "can0",
+                    "interface_type": "canfd",
+                    "motor_type": "LRO",
+                    "motor_model": 0,
+                    "motor_id": index + 1,
+                    "zero_offset": 0.0,
+                    "sign": 1.0,
+                    "kp": 12.0,
+                    "kd": 0.4,
+                }
+                for index in range(count)
+            ]
+        },
+    }
+
+
+@pytest.mark.parametrize("phase", ["init", "mode", "interrupt"])
+def test_partial_initialization_rolls_back_current_and_previous_driver(monkeypatch, phase):
+    drivers = [Driver(), Driver()]
+    primary = KeyboardInterrupt() if phase == "interrupt" else OSError("initialization failed")
+    cleanup_attempts = []
+
+    def fail(*_):
+        raise primary
+
+    if phase == "init":
+        drivers[1].init_motor = fail
+    else:
+        drivers[1].set_motor_control_mode = fail
+
+    def failed_cleanup():
+        cleanup_attempts.append(1)
+        raise RuntimeError("rollback failed")
+
+    drivers[1].deinit_motor = failed_cleanup
+    selected = iter(drivers)
+    sdk = SimpleNamespace(
+        MotorDriver=SimpleNamespace(create_motor=lambda **_: next(selected)),
+        MotorControlMode=SimpleNamespace(MIT="MIT"),
+    )
+    monkeypatch.setitem(sys.modules, "motors_py", sdk)
+    with pytest.raises(type(primary)) as failure:
+        create_motors(adapter_config())
+    assert failure.value is primary
+    assert cleanup_attempts == [1]
+    assert drivers[0].disabled
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("sign", float("nan")),
+        ("zero_offset", float("inf")),
+        ("kp", float("nan")),
+        ("kd", -float("inf")),
+    ],
+)
+def test_invalid_motor_parameters_do_not_import_sdk(monkeypatch, field, value):
+    from rp1_test.adapters import roboparty_motors
+
+    imported = []
+    monkeypatch.setattr(roboparty_motors, "import_motors_py", lambda: imported.append(True))
+    config = adapter_config(1)
+    config["hardware"]["motors"][0][field] = value
+    with pytest.raises(ValueError, match="finite"):
+        create_motors(config)
+    assert not imported

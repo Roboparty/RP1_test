@@ -1,45 +1,33 @@
-# 测试数据分析
+# 单次运行分析
 
-围绕“机器人能否持续完成任务、试后是否退化、改进是否有效”整理分析方法与软件。输入来自上位机和测试执行记录，结果对应 [整机测试用例](../test-cases/README.md)，用于解释温升、跟随误差、任务中断和基线变化。
+读取 `rp1-test` 的本地运行文件，输出关节跟随误差、全程温度、有效时长、缺失计数和事件摘要。使用 Python 3.10+ 标准库，无需机器人、SDK、Docker 或数据库。
 
-**本目录提供分析设计与数据接口说明。分析程序、示例文件和配置模板尚未实现。**
+在仓库根目录执行：
 
-## 目录
-
-| 目录 | 首版内容 | 输入 → 输出 |
-|---|---|---|
-| [docs](docs/README.md) | 架构、数据格式、采集、分析与接入指导 | 测试问题 → 指标、记录要求和解释方法 |
-| [scripts](scripts/README.md) | 单次运行分析、基线对比、事件汇总 | 遥测、事件、配置 → 摘要、对比表和时间线 |
-| [examples](examples/README.md) | 合成运行记录及预期结果；后续补匿名真实片段 | 可复现输入 → 可核对的分析结果 |
-| [config](config/README.md) | 字段映射、运行区间、工况与阈值模板 | 原始字段 → 明确单位和统计范围的数据 |
-
-分析输入采用 `rp1_test` 的 `telemetry.csv`、`events.jsonl`、`metadata.json` 和配置快照，并支持 Factory HMI 执行包的字段映射。任务里程、抓取结果、母线电压与电流需相应记录。
-
-## 按用例使用
-
-1. **选问题。** 001/003关注温升、误差与有效站立时间；002/016关注同路线和负载下的变化；012关注告警、降额、停机顺序；021关注成功、重试和人工接管。
-2. **冻结条件。** 保存机器人、软件、负载、环境、任务目标、阈值和试前基线，具体规则见 [公共规则](../test-cases/common.md)。
-3. **采集记录。** 通过 [上位机](../software/host/README.md) 和 [test-runner](../software/test-runner/README.md) 保存遥测、事件及确认的任务区间；标明暂停、换电、冷却与异常中断。
-4. **分析与对比。** 跟随误差使用同工况的 active 样本；温度保留全程，包括暂停和停机后。用已确认的 active intervals 计算有效任务时长。
-5. **形成结论。** 结合试前/试后检查、故障处置和复测记录，由执行者判断用例结果。脚本不自动生成正式 PASS。
-
-## 与在线软件的关系
-
-```mermaid
-flowchart LR
-    H[上位机 / 测试执行] --> F[本地原始记录]
-    F --> A[离线分析]
-    H --> S[Service / API]
-    S --> P[(PostgreSQL业务数据)]
-    P --> W[遥测导出 Worker]
-    W --> I[(InfluxDB时序数据)]
-    I --> G[Grafana监控]
+```bash
+python data-analysis/scripts/analyze_run.py data-analysis/examples/synthetic-run \
+  --output outputs/analysis-demo --max-gap-s 1.5
+python -m unittest discover -s data-analysis/tests
 ```
 
-整体软件见 [software](../software/README.md)。Service 与 PostgreSQL 管理执行关联和业务汇总；InfluxDB 与 Grafana 提供遥测监控。离线分析按文件输入设计，无需部署全部服务。
+生成 `summary.json` 和 `report.md`。演示总时长 8 s、有效时长 6 s，误差 RMS 约 0.173205 rad，全程最高温度 80 ℃。这些是特意设计的合成值，不是机器人实测结果；核对方法见[样例说明](examples/README.md)。
 
-## 分析约定
+分析实际运行时，将输入路径换为 [test-runner](../software/test-runner/README.md) 生成的运行目录。当前支持原生 CSV 字段；Factory HMI 执行包需先转换为该格式，自动转换与跨运行对比尚未提供。
 
-- 明确单位转换、缺失值、重复时间、暂停与中断的处理；缺失数据不填为 0，断采不计为正常完成。
-- 输出记录输入来源、配置、统计区间和工具版本；可比条件不足时指出缺口。
-- 示例阈值只演示软件行为；单次运行摘要不推导 MTBF，也不替代产品验收。
+## 输入与统计
+
+| 文件/字段 | 用途 |
+|---|---|
+| `telemetry.csv` | 必需：`time_s`、`motor_index`、`cmd_pos_rad`、`pos_rad`；可选 `joint_name`、`temp_c`。位置为 rad，时间为相对采集时间 s |
+| `metadata.json` | 必需。提供运行编号、`source_kind`、起止时间或 `elapsed_seconds`；`confirmed_active_intervals` 使用同一相对时间轴 |
+| `events.jsonl` | 可选。每行一个事件对象，读取 `type`/`event_type`、`elapsed_s` 和绝对时间；缺少文件时注明 |
+| `ambient_temperature_c` | 元数据中的环境温度；缺失时仅输出温度，不计算温升 |
+| `--max-gap-s` | 明确指定相邻同关节样本的最大允许间隔；未指定时不评价断采 |
+
+- 有效时长来自已确认区间之和，区间按 `[start_s,end_s)` 统计。不从 CSV 首尾或样本数推断任务持续运行；没有区间时有效时长和 active 误差为空。
+- 误差为同一行 `pos_rad - cmd_pos_rad`，仅统计 active 区间的有效配对；RMS 按有效样本等权计算，不做角度环绕或时间加权。
+- 温度保留全程，包括暂停和结束采样点。缺失、NaN、Inf 保持未知，不补零。
+- 同关节重复/倒序行计数并从指标中排除；不自动重排原始记录。采样间隔与缺失字段分别报告，未检测到时间间隔超限不等于数据完整。
+- 逐行读取 CSV，内存主要取决于关节数；事件预览最多 1000 条，事件计数覆盖全部记录。输出保存工具版本、选项与输入文件指纹。
+
+本工具提供描述性摘要，不自动判定测试通过、不推导 MTBF。整机用例仍需完成[公共检查和批准判据](../test-cases/common.md)，基线对比须先确认配置与工况一致。

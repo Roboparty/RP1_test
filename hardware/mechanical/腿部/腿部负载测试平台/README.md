@@ -1,16 +1,16 @@
 # 腿部负载测试平台
 
-用于腿部总成固定及加载机构集成。结构设计与采购资料分别位于 CAD 和 BOM 目录。
+用于腿部总成固定及加载机构集成。原生 CAD 通过 Releases 下载，采购资料位于 BOM 目录。
 
 ```text
 腿部负载测试平台/
-├── cad/solidworks/   # 总装、零件与配套资源
+├── cad/solidworks/   # 下载 CAD 附件后生成
 └── bom/             # 机械采购工作簿
 ```
 
 | 资料 | 入口 |
 |---|---|
-| SolidWorks 总装 | [腿部老化测试平台总装.SLDASM](cad/solidworks/腿部老化测试平台总装.SLDASM) |
+| SolidWorks 总装 | [下载腿部 CAD](../../README.md#下载-cad)，总装为 `腿部老化测试平台总装.SLDASM` |
 | 机械 BOM | [腿部老化测试平台 BOM 20260601.xlsx](<bom/腿部老化测试平台 BOM 20260601.xlsx>) |
 
 采购使用工作表 `腿部老化测试平台 项目结构件 BOM`，按零件号和版本匹配模型。其他工作表不纳入台架采购。

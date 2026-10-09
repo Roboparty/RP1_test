@@ -39,7 +39,7 @@ rp1-test hardware replay motion.npz --config config/rp1_test.example.yaml \
   --model /path/to/approved-release/rp1_description/mjcf/rp1_flat.xml --dry-run
 ```
 
-真实执行需同时提供 `--real-hardware --acknowledge I_UNDERSTAND_RP1_MOTION`。交互键为 R 回默认、P 播放、Space 暂停、Q 退出；执行前检查 SHA-256、关节顺序、指纹及位置/速度/加速度，执行中监测设备反馈 watchdog。SDK 只在真机确认后加载。示例限位和增益必须替换为该设备已批准参数。
+真实执行需同时提供 `--real-hardware --acknowledge I_UNDERSTAND_RP1_MOTION`。交互键为 R 回默认、P 播放、Space 暂停、Q 正常回默认后退出。执行前检查 SHA-256、关节顺序、指纹、默认位姿和位置/速度/加速度；渐入与回默认从实际反馈位置生成，并按同一限值校验。异常或中断时直接逐台尝试失能，不再回默认；NaN/Inf 位置反馈触发故障。SDK 只在真机确认后加载。示例限位和增益必须替换为该设备已批准参数。
 
 ## 数据与平台
 

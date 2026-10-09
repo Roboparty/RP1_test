@@ -6,8 +6,11 @@ import csv
 import hashlib
 import json
 import math
+from collections.abc import Iterator
+from contextlib import closing, contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any
 from uuid import UUID
 
@@ -16,6 +19,7 @@ import yaml
 
 from .api import IngestionClient
 from .outbox import SQLiteOutbox
+from .telemetry_spool import TelemetrySpool
 from .trajectory import sha256_file
 from .units import rad_to_deg
 
@@ -92,30 +96,37 @@ def _read_telemetry(path: Path) -> list[dict[str, Any]]:
         ]
 
 
+def _iter_events(path: Path) -> Iterator[dict[str, Any]]:
+    with path.open("r", encoding="utf-8") as handle:
+        for line_number, line in enumerate(handle, 1):
+            if not line.strip():
+                continue
+            value = json.loads(line)
+            if not isinstance(value, dict):
+                raise ValueError(f"{path}:{line_number} event must be a JSON object")
+            yield _json_value(value)
+
+
 def _read_events(path: Path) -> list[dict[str, Any]]:
-    events = []
-    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
-        if not line.strip():
-            continue
-        value = json.loads(line)
-        if not isinstance(value, dict):
-            raise ValueError(f"{path}:{line_number} event must be a JSON object")
-        events.append(_json_value(value))
-    return events
+    return list(_iter_events(path))
 
 
-def _verify_manifest(run_dir: Path, manifest: dict[str, Any]) -> None:
+def _verify_manifest(run_dir: Path, manifest: dict[str, Any]) -> dict[str, str]:
     files = manifest.get("files")
     if not isinstance(files, list):
         raise ValueError("manifest files must be a list")
+    verified = {}
     for item in files:
         path = run_dir / str(item["name"])
         if not path.is_file():
             raise FileNotFoundError(f"manifest file is missing: {path}")
         if path.stat().st_size != int(item["size_bytes"]):
             raise ValueError(f"manifest size mismatch: {path.name}")
-        if sha256_file(path) != str(item["sha256"]):
+        digest = sha256_file(path)
+        if digest != str(item["sha256"]):
             raise ValueError(f"manifest SHA-256 mismatch: {path.name}")
+        verified[str(item["name"])] = digest
+    return verified
 
 
 def _execution_payload(
@@ -179,6 +190,8 @@ def _convert_events(
     raw_events: list[dict[str, Any]],
     metadata: dict[str, Any],
     started_at: datetime,
+    *,
+    start_index: int = 0,
 ) -> list[dict[str, Any]]:
     if not raw_events:
         raw_events = [
@@ -189,7 +202,7 @@ def _convert_events(
             }
         ]
     converted = []
-    for index, raw in enumerate(raw_events):
+    for index, raw in enumerate(raw_events, start_index):
         absolute = raw.get("occurred_at") or raw.get("recorded_at")
         clock_quality = "VALID"
         try:
@@ -270,14 +283,19 @@ def _series_for_metric(
     telemetry_path: Path,
     source_stride: int,
     convert_radians: bool,
+    source_sha256: str | None = None,
+    chunk_start: int = 0,
 ) -> list[dict[str, Any]]:
     points_source = [row for row in rows if isinstance(row.get(source_column), (int, float))]
     if source_column in {"cmd_pos_rad", "pos_rad"} and not points_source:
         raise ValueError(f"motor_index={motor_index} has no finite {source_column} telemetry")
     if not points_source:
         return []
+    source_sha256 = source_sha256 or sha256_file(telemetry_path)
     series_chunks = []
-    for chunk_index, offset in enumerate(range(0, len(points_source), MAX_POINTS_PER_SERIES)):
+    for chunk_index, offset in enumerate(
+        range(0, len(points_source), MAX_POINTS_PER_SERIES), chunk_start
+    ):
         chunk = points_source[offset : offset + MAX_POINTS_PER_SERIES]
         observed = [started_at + timedelta(seconds=float(row["time_s"])) for row in chunk]
         values = [
@@ -299,7 +317,7 @@ def _series_for_metric(
             "subject": subject_code,
             "metric": metric_code,
             "chunk": chunk_index,
-            "source_sha256": sha256_file(telemetry_path),
+            "source_sha256": source_sha256,
         }
         series_chunks.append(
             {
@@ -316,7 +334,7 @@ def _series_for_metric(
                 "quality_status": "VALID",
                 "raw_data_reference": {
                     "file_name": telemetry_path.name,
-                    "sha256": sha256_file(telemetry_path),
+                    "sha256": source_sha256,
                     "column": source_column,
                     "motor_index": motor_index,
                     "source_stride": source_stride,
@@ -346,6 +364,7 @@ def _telemetry_series(
     metric_version: str,
 ) -> list[dict[str, Any]]:
     all_series: list[dict[str, Any]] = []
+    source_sha256 = sha256_file(telemetry_path)
     for mapping in sorted(mappings, key=lambda item: int(item["motor_index"])):
         motor_index = int(mapping["motor_index"])
         joint_rows = sorted(
@@ -379,6 +398,7 @@ def _telemetry_series(
             "started_at": started_at,
             "telemetry_path": telemetry_path,
             "source_stride": stride,
+            "source_sha256": source_sha256,
         }
         all_series.extend(
             _series_for_metric(
@@ -443,6 +463,108 @@ def _telemetry_series(
             )
         )
     return all_series
+
+
+def _iter_spooled_series(
+    spool: TelemetrySpool,
+    mappings: list[dict[str, Any]],
+    *,
+    producer_execution_key: str,
+    started_at: datetime,
+    telemetry_path: Path,
+    requested_stride: int,
+    metric_version: str,
+    source_sha256: str,
+) -> Iterator[dict[str, Any]]:
+    metrics = (
+        ("cmd_pos_rad", "JOINT-TARGET-POSITION", "deg", True),
+        ("pos_rad", "JOINT-ACTUAL-POSITION", "deg", True),
+        ("tracking_error_rad", "JOINT-TRACKING-ERROR", "deg", True),
+        ("spd_rad_s", "JOINT-VELOCITY", "deg/s", True),
+        ("torque_nm", "JOINT-TORQUE", "N·m", False),
+        ("temp_c", "JOINT-TEMPERATURE", "°C", False),
+    )
+    for mapping in sorted(mappings, key=lambda item: int(item["motor_index"])):
+        motor_index = int(mapping["motor_index"])
+        stride = spool.sample_motor(motor_index, requested_stride)
+        for column, metric, unit, convert in metrics:
+            found = False
+            for chunk_index, rows in enumerate(spool.metric_chunks(column, MAX_POINTS_PER_SERIES)):
+                found = True
+                series = _series_for_metric(
+                    producer_execution_key=producer_execution_key,
+                    subject_code=str(mapping["telemetry_subject_code"]),
+                    motor_index=motor_index,
+                    rows=rows,
+                    source_column=column,
+                    metric_code=metric,
+                    metric_version=metric_version,
+                    canonical_unit=unit,
+                    started_at=started_at,
+                    telemetry_path=telemetry_path,
+                    source_stride=stride,
+                    convert_radians=convert,
+                    source_sha256=source_sha256,
+                    chunk_start=chunk_index,
+                )[0]
+                if column == "tracking_error_rad":
+                    reference = series["raw_data_reference"]
+                    reference.pop("column")
+                    reference.update(
+                        derived=True,
+                        expression="pos_rad - cmd_pos_rad",
+                        source_columns=["pos_rad", "cmd_pos_rad"],
+                        source_unit="rad",
+                    )
+                yield series
+            if not found and column in {"cmd_pos_rad", "pos_rad"}:
+                raise ValueError(f"motor_index={motor_index} has no finite {column} telemetry")
+
+
+def _event_batches(
+    path: Path, metadata: dict[str, Any], started_at: datetime
+) -> Iterator[list[dict[str, Any]]]:
+    batch = []
+    count = 0
+    for count, raw in enumerate(_iter_events(path), 1):
+        batch.extend(_convert_events([raw], metadata, started_at, start_index=count - 1))
+        if len(batch) == MAX_EVENTS_PER_BATCH:
+            yield batch
+            batch = []
+    if not count:
+        batch = _convert_events([], metadata, started_at)
+    if batch:
+        yield batch
+
+
+class _StagingOutbox(SQLiteOutbox):
+    """Use the existing queue schema while closing temporary DB connections."""
+
+    @contextmanager
+    def _connect(self):
+        with closing(super()._connect()) as db, db:
+            db.execute("PRAGMA cache_size=-2048")
+            yield db
+
+
+def _publish_staged(staged: SQLiteOutbox, outbox: SQLiteOutbox) -> None:
+    # One transaction publishes the complete run, including finish. Invalid
+    # input or any insert failure leaves the destination queue unchanged. The
+    # SQL copy avoids loading all serialized requests back into Python memory.
+    with closing(outbox._connect()) as db:
+        db.execute("ATTACH DATABASE ? AS staged_run", (str(staged.path),))
+        with db:
+            db.execute(
+                """
+                INSERT OR IGNORE INTO outbox (
+                    idempotency_key, method, path, payload_json, created_at,
+                    producer_execution_key, requires_stage_id, captures_resolution
+                )
+                SELECT idempotency_key, method, path, payload_json, created_at,
+                       producer_execution_key, requires_stage_id, captures_resolution
+                FROM staged_run.outbox ORDER BY id
+                """
+            )
 
 
 def _artifact_payloads(
@@ -612,7 +734,7 @@ def enqueue_run(
     config = yaml.safe_load(snapshot.read_text(encoding="utf-8")) or {}
     if not all(isinstance(value, dict) for value in (manifest, metadata, config)):
         raise ValueError("manifest, metadata, and config snapshot must be objects")
-    _verify_manifest(run_dir, manifest)
+    verified_hashes = _verify_manifest(run_dir, manifest)
     producer_key = IngestionClient.validate_producer_execution_key(
         str(producer_execution_key or metadata.get("run_id") or manifest.get("run_id") or "")
     )
@@ -625,76 +747,108 @@ def enqueue_run(
         raise ValueError("platform.metric_version is invalid")
     create_payload = _execution_payload(config, metadata, producer_key)
     started_at = _parse_datetime(create_payload["started_at"], "create.started_at")
-    telemetry_rows = _read_telemetry(telemetry_path)
-    series = _telemetry_series(
-        telemetry_rows,
-        mappings,
-        producer_execution_key=producer_key,
-        started_at=started_at,
-        telemetry_path=telemetry_path,
-        requested_stride=telemetry_stride,
-        metric_version=metric_version,
-    )
-    if not series:
-        raise ValueError("telemetry conversion produced no series")
-
-    client = IngestionClient("", "", outbox)
-    queued_keys = [
-        client.create_execution(create_payload, _stable_key("create-request", create_payload))
-    ]
-    converted_events = _convert_events(_read_events(events_path), metadata, started_at)
-    for batch_index, offset in enumerate(range(0, len(converted_events), MAX_EVENTS_PER_BATCH)):
-        event_items = converted_events[offset : offset + MAX_EVENTS_PER_BATCH]
-        payload = {
-            "producer_key": _stable_key(f"events-{batch_index}", {"events": event_items}),
-            "events": event_items,
-        }
-        queued_keys.append(
-            client.events(
-                producer_key,
-                payload,
-                _stable_key(f"events-request-{batch_index}", payload),
-            )
-        )
-    telemetry_batches = 0
-    for batch_index, offset in enumerate(range(0, len(series), MAX_SERIES_PER_BATCH)):
-        series_batch = series[offset : offset + MAX_SERIES_PER_BATCH]
-        payload = {
-            "producer_key": _stable_key(f"telemetry-{batch_index}", {"series": series_batch}),
-            "series": series_batch,
-        }
-        queued_keys.append(
-            client.telemetry(
-                producer_key,
-                payload,
-                _stable_key(f"telemetry-request-{batch_index}", payload),
-            )
-        )
-        telemetry_batches += 1
     artifact_payloads = _artifact_payloads(run_dir, manifest, metadata)
-    for index, payload in enumerate(artifact_payloads):
+    finish_payload = _finish_payload(metadata, [], started_at)
+    telemetry_sha256 = verified_hashes.get("telemetry.csv")
+    if telemetry_sha256 is None:
+        telemetry_sha256 = sha256_file(telemetry_path)
+
+    # Sorting, sampling and request staging live on disk. Only one telemetry
+    # batch (20 series of at most 5000 points) or 1000 events is materialized.
+    with TemporaryDirectory(prefix="rp1-ingestion-") as temporary:
+        temporary_path = Path(temporary)
+        staged = _StagingOutbox(temporary_path / "requests.sqlite3")
+        client = IngestionClient("", "", staged)
+        queued_keys = [
+            client.create_execution(create_payload, _stable_key("create-request", create_payload))
+        ]
+        event_count = 0
+        for batch_index, event_items in enumerate(
+            _event_batches(events_path, metadata, started_at)
+        ):
+            payload = {
+                "producer_key": _stable_key(f"events-{batch_index}", {"events": event_items}),
+                "events": event_items,
+            }
+            queued_keys.append(
+                client.events(
+                    producer_key, payload, _stable_key(f"events-request-{batch_index}", payload)
+                )
+            )
+            event_count += len(event_items)
+        # Release the final event batch before building telemetry payloads.
+        del event_items, payload
+
+        telemetry_batches = telemetry_series_count = 0
+        with closing(TelemetrySpool(temporary_path / "telemetry.sqlite3")) as spool:
+            spool.load(telemetry_path, _parse_csv_value)
+            telemetry_row_count = spool.row_count
+            series_batch = []
+            for series in _iter_spooled_series(
+                spool,
+                mappings,
+                producer_execution_key=producer_key,
+                started_at=started_at,
+                telemetry_path=telemetry_path,
+                requested_stride=telemetry_stride,
+                metric_version=metric_version,
+                source_sha256=telemetry_sha256,
+            ):
+                series_batch.append(series)
+                telemetry_series_count += 1
+                if len(series_batch) == MAX_SERIES_PER_BATCH:
+                    payload = {
+                        "producer_key": _stable_key(
+                            f"telemetry-{telemetry_batches}", {"series": series_batch}
+                        ),
+                        "series": series_batch,
+                    }
+                    queued_keys.append(
+                        client.telemetry(
+                            producer_key,
+                            payload,
+                            _stable_key(f"telemetry-request-{telemetry_batches}", payload),
+                        )
+                    )
+                    telemetry_batches += 1
+                    series_batch = []
+                    del payload
+            if series_batch:
+                payload = {
+                    "producer_key": _stable_key(
+                        f"telemetry-{telemetry_batches}", {"series": series_batch}
+                    ),
+                    "series": series_batch,
+                }
+                queued_keys.append(
+                    client.telemetry(
+                        producer_key,
+                        payload,
+                        _stable_key(f"telemetry-request-{telemetry_batches}", payload),
+                    )
+                )
+                telemetry_batches += 1
+            if not telemetry_series_count:
+                raise ValueError("telemetry conversion produced no series")
+        for index, payload in enumerate(artifact_payloads):
+            queued_keys.append(
+                client.artifact(
+                    producer_key, payload, _stable_key(f"artifact-request-{index}", payload)
+                )
+            )
         queued_keys.append(
-            client.artifact(
-                producer_key,
-                payload,
-                _stable_key(f"artifact-request-{index}", payload),
+            client.finish_execution(
+                producer_key, finish_payload, _stable_key("finish-request", finish_payload)
             )
         )
-    finish_payload = _finish_payload(metadata, telemetry_rows, started_at)
-    queued_keys.append(
-        client.finish_execution(
-            producer_key,
-            finish_payload,
-            _stable_key("finish-request", finish_payload),
-        )
-    )
+        _publish_staged(staged, outbox)
     return {
         "producer_execution_key": producer_key,
         "queued_requests": len(queued_keys),
-        "telemetry_rows": len(telemetry_rows),
-        "telemetry_series": len(series),
+        "telemetry_rows": telemetry_row_count,
+        "telemetry_series": telemetry_series_count,
         "telemetry_batches": telemetry_batches,
         "artifact_requests": len(artifact_payloads),
-        "event_count": len(converted_events),
+        "event_count": event_count,
         "idempotency_keys": queued_keys,
     }

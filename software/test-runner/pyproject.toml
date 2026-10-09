@@ -7,6 +7,7 @@ name = "rp1-test"
 version = "0.1.0"
 description = "Self-contained RP1 trajectory, replay, safety, artifact, and ingestion toolkit"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
   "numpy>=1.23",

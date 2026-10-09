@@ -2,7 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytest
-from test_fake_motor_watchdog import Clock, FakeMotor
+from test_fake_motor_watchdog import Clock, FakeMotor, safety_config
 
 from rp1_test.hardware import HardwareRunner
 from rp1_test.mapping import JointMapping
@@ -28,6 +28,7 @@ def test_active_time_excludes_entry_home_and_operator_wait(tmp_path):
         [JointMapping("j0", 0, "SARM-SHOULDER-PITCH", "SARM")],
         load_trajectory(path),
         default_pose=np.asarray([0.0]),
+        safety_config=safety_config(),
         control_rate_hz=100,
         transition_seconds=0.1,
         clock=clock,
