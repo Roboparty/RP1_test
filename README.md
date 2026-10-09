@@ -4,7 +4,7 @@ English | [简体中文](README_CN.md)
 
 Test rigs, software and methods for RP1 module aging and whole-robot reliability testing. The repository includes arm, torso and leg-load rig files, RP1 Factory HMI, trajectory and data-collection tools, data services, and 18 draft whole-robot test methods.
 
-![Test platform hardware architecture](hardware/mechanical/手臂胸腔/共用资料/architecture/platform-overview.png)
+![RP1 Factory HMI aging-test interface](docs/media/factory-hmi.jpg)
 
 ## Start Here
 
@@ -15,6 +15,20 @@ Test rigs, software and methods for RP1 module aging and whole-robot reliability
 | Plan and record a test | [18 test methods](test-cases/README.md) · [Inspection and run record](test-cases/checklist.md) |
 
 The HMI fake backend needs no motor SDK. The data-service demo generates a synthetic two-joint record over 12 simulated seconds, including a 2-second pause and 10 seconds of active time. Its result remains `INCONCLUSIVE`.
+
+## Test Dashboards
+
+| Lower body | Upper body |
+| --- | --- |
+| ![Lower-body test dashboard](docs/media/test-dashboard-lower-body.jpg) | ![Upper-body test dashboard](docs/media/test-dashboard-upper-body.jpg) |
+
+These screenshots show the module-test dashboards used with the platform. Their frontend is not included in this repository.
+
+## Rig Demonstrations
+
+| Arm test | Leg test |
+| --- | --- |
+| <img src="docs/media/arm-test.gif" width="320" alt="Arm module test rig in operation"> | <img src="docs/media/leg-test.gif" width="320" alt="Leg module test rig in operation"> |
 
 ## Files and Scope
 

@@ -4,7 +4,7 @@
 
 RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包含手臂、胸腔、腿部负载三类台架，RP1 Factory HMI、轨迹与数据采集工具、数据服务，以及 18 项整机测试方法草案。
 
-![测试平台硬件架构](hardware/mechanical/手臂胸腔/共用资料/architecture/platform-overview.png)
+![RP1 可靠性测试上位机：老化测试界面](docs/media/factory-hmi.jpg)
 
 ## 从这里开始
 
@@ -15,6 +15,20 @@ RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包�
 | 选择方法并记录测试 | [18 项测试方法](test-cases/README.md) · [检查与执行记录](test-cases/checklist.md) |
 
 HMI 的 fake 后端不需要电机 SDK。数据服务演示生成双关节合成记录，模拟 12 秒运行，其中暂停 2 秒、有效任务时间 10 秒；结果保持为 `INCONCLUSIVE`，用于验证软件链路。
+
+## 测试大屏
+
+| 下肢测试大屏 | 上肢测试大屏 |
+| --- | --- |
+| ![下肢模块测试大屏](docs/media/test-dashboard-lower-body.jpg) | ![上肢模块测试大屏](docs/media/test-dashboard-upper-body.jpg) |
+
+截图展示配套平台的模块测试汇总界面，大屏前端代码未包含在本仓库中。
+
+## 台架测试演示
+
+| 手臂测试 | 腿部测试 |
+| --- | --- |
+| <img src="docs/media/arm-test.gif" width="320" alt="手臂模块台架测试动图"> | <img src="docs/media/leg-test.gif" width="320" alt="腿部模块台架测试动图"> |
 
 ## 资料与范围
 
