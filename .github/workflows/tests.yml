@@ -39,9 +39,10 @@ jobs:
         run: python -m pytest -q -p no:cacheprovider software/test-runner/tests
       - name: Test synthetic client in a separate process
         run: python -m pytest -q -p no:cacheprovider software/demo-client/tests
-      - name: Test analysis and monitoring contracts
+      - name: Test analysis, stack checks and monitoring contracts
         run: |
           python -m unittest discover -s data-analysis/tests
+          python -m unittest discover -s software/scripts/tests
           python -m unittest discover -s software/influxdb/tests
           python software/grafana/scripts/validate_dashboard.py
       - name: Run the documented offline analysis
@@ -102,6 +103,9 @@ jobs:
           docker compose run --rm --no-deps -v "$PWD/database:/database:ro" api python -m pytest -q
           docker compose run --rm --no-deps migrate python -m unittest discover -s tests
           docker compose run --rm migrate python scripts/verify_schema.py
+      - name: Show service state on failure
+        if: failure()
+        run: docker compose ps --all
       - name: Clean up temporary CI services
         if: always()
         run: docker compose --profile demo down --volumes --remove-orphans

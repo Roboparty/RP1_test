@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import base64
 import csv
+import http.client
 import io
 import json
 import math
@@ -51,7 +52,7 @@ def request(
         raise RuntimeError(
             f"HTTP {exc.code} from {urllib.parse.urlsplit(url).path}"
         ) from None
-    except (urllib.error.URLError, TimeoutError):
+    except (OSError, http.client.HTTPException):
         raise RuntimeError("A stack endpoint is unavailable") from None
 
 
