@@ -1,6 +1,6 @@
 # 单次运行分析
 
-读取 `rp1-test` 的本地运行文件，输出关节跟随误差、全程温度、有效时长、缺失计数和事件摘要。使用 Python 3.10+ 标准库，无需机器人、SDK、Docker 或数据库。
+读取 `rp1-test` 的本地运行文件，输出关节跟随误差、全程温度、有效时长、缺失计数和事件摘要。使用 Python 3.10+ 标准库。
 
 在仓库根目录执行：
 
@@ -10,9 +10,9 @@ python data-analysis/scripts/analyze_run.py data-analysis/examples/synthetic-run
 python -m unittest discover -s data-analysis/tests
 ```
 
-生成 `summary.json` 和 `report.md`。演示总时长 8 s、有效时长 6 s，误差 RMS 约 0.173205 rad，全程最高温度 80 ℃。这些是特意设计的合成值，不是机器人实测结果；核对方法见[样例说明](examples/README.md)。
+生成 `summary.json` 和 `report.md`。合成输入、预期结果和手算核对见[样例说明](examples/README.md)。
 
-分析实际运行时，将输入路径换为 [test-runner](../software/test-runner/README.md) 生成的运行目录。当前支持原生 CSV 字段；Factory HMI 执行包需先转换为该格式，自动转换与跨运行对比尚未提供。
+分析实际运行时，将输入路径换为 [test-runner](../software/test-runner/README.md) 生成的运行目录。Factory HMI 执行包先转换为下表的 CSV 与元数据格式。
 
 ## 输入与统计
 
@@ -30,4 +30,4 @@ python -m unittest discover -s data-analysis/tests
 - 同关节重复/倒序行计数并从指标中排除；不自动重排原始记录。采样间隔与缺失字段分别报告，未检测到时间间隔超限不等于数据完整。
 - 逐行读取 CSV，内存主要取决于关节数；事件预览最多 1000 条，事件计数覆盖全部记录。输出保存工具版本、选项与输入文件指纹。
 
-本工具提供描述性摘要，不自动判定测试通过、不推导 MTBF。整机用例仍需完成[公共检查和批准判据](../test-cases/common.md)，基线对比须先确认配置与工况一致。
+输出为单次运行的描述性统计。测试结论按[公共检查和批准判据](../test-cases/common.md)形成，基线对比使用一致的配置与工况。

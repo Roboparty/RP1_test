@@ -73,6 +73,6 @@ python -m app.services.influx_worker
 | `INFLUX_TOKEN` | Influx写入token，由部署注入 |
 | `INFLUX_TIMEOUT_SECONDS` | HTTP超时，默认20秒 |
 
-原始高频CSV/视频继续由上位机保存；API登记文件引用与SHA-256，当前不上传文件字节。有效运行时间、可靠性暴露时间和墙钟时长采用各自口径。合成运行在注册时设置 `source_metadata.source_kind=synthetic`，监控与分析应按此标签筛选。
+原始高频 CSV / 视频由上位机保存，API 登记文件引用与 SHA-256。有效运行时间、可靠性暴露时间和墙钟时长采用各自口径。合成运行在注册时设置 `source_metadata.source_kind=synthetic`，监控与分析应按此标签筛选。
 
 真机控制由本机设备适配层负责，用例结果由事先确定的规则判定。业务查询与遥测展示不触发设备运动。

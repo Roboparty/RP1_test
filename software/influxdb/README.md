@@ -46,4 +46,4 @@ python3 -m unittest discover -s influxdb/tests -v
 
 默认组织 `rp1_test`、bucket `telemetry`、保留 30 天，服务于本地演示。长期试验应按采样量和留存目标确定容量与备份。重复写入相同 measurement、tag 集和 timestamp 会合并字段或覆盖同名字段；后续空值不会删除旧值。读写异常时脚本返回非零状态。
 
-曲线只显示已接入的遥测字段；能耗、里程和停机事件需相应采集记录。保护动作由设备控制侧执行。
+时序曲线展示遥测字段，执行状态与故障记录由 Service / PostgreSQL 管理，保护动作由设备控制侧执行。

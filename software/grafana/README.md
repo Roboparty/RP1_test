@@ -51,4 +51,4 @@ python3 grafana/scripts/validate_dashboard.py
 
 开发检查覆盖 JSON 结构、变量、字段与单位、Flux bucket 引用、空窗处理、来源和敏感字段。
 
-尚未接入的停机事件、保护阈值、站立时长、里程与能耗没有生成图表或验收结论。异常需结合 [测试用例](../../test-cases/README.md)、运行事件及本地原始数据判断。
+结合 [测试用例](../../test-cases/README.md)、运行事件及本地原始数据分析异常。

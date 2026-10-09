@@ -12,7 +12,7 @@ sh scripts/run-demo.sh
 python3 scripts/verify_stack.py --demo
 ```
 
-首次启动生成私有 `.env`，完成数据库迁移、InfluxDB 初始化和面板导入。`demo-client` 生成 **12 秒时间跨度、10 秒有效任务时间、2 秒暂停** 的双关节记录，经 API 上传，再由 Worker 导出至 InfluxDB。数据始终标为 `synthetic`，测试结果为 `INCONCLUSIVE`。
+首次启动生成私有 `.env`，完成数据库迁移、InfluxDB 初始化和面板导入。`demo-client` 生成双关节合成记录，经 API 上传，再由 Worker 导出至 InfluxDB。
 
 桌面上位机见 [RP1 Factory HMI](host/README.md)，桌面客户端与本机控制网关分别启动。上述命令启动数据服务并运行 `demo-client` 合成示例。
 
@@ -24,7 +24,7 @@ python3 scripts/verify_stack.py --demo
 | InfluxDB | <http://127.0.0.1:18086> |
 | PostgreSQL | `127.0.0.1:15432` |
 
-登录账号与本地生成的密码见 `.env`。端口可在该文件调整。演示记录和 SQLite 补传队列保存在 `.runtime/`；凭据、运行记录与容器卷均不属于公开源码。
+登录账号与本地生成的密码见 `.env`。端口可在该文件调整。演示记录和 SQLite 补传队列保存在 `.runtime/`。
 
 ```bash
 sh scripts/stop.sh  # 停止服务，保留数据库与遥测卷
@@ -67,9 +67,9 @@ flowchart LR
 
 PostgreSQL 保存用例、配置、执行、事件和降采样遥测。API 在同一事务内保存遥测与 Influx 导出任务；Worker 写入成功后确认任务，失败后保留并退避重试。InfluxDB 用于过程曲线，原始采样以本地运行记录为准。
 
-Grafana 提供温度、指令/反馈、跟踪误差、速度、力矩及数据来源显示。Service 提供业务查询接口，可用于自定义大屏；故障事件标注尚未接入面板。
+Grafana 提供温度、指令/反馈、跟踪误差、速度、力矩及数据来源显示。Service 提供业务查询接口，可用于自定义大屏。
 
-Factory HMI 支持工站登录、提交审批和分块上传协议；本仓库的 Service 提供可靠性 `ingestion` 协议。[执行包桥接](host/docs/RELIABILITY_BRIDGE.md)用于接入可靠性数据，不提供审批功能。HMI 的可选直接实时写入使用 InfluxDB 3 API；Compose 通过 Worker 写 InfluxDB 2.9，配置时须选择对应协议。
+Factory HMI 支持工站登录、提交审批和分块上传协议；本仓库的 Service 提供可靠性 `ingestion` 协议。[执行包桥接](host/docs/RELIABILITY_BRIDGE.md)用于接入可靠性数据。HMI 的可选直接实时写入使用 InfluxDB 3 API；Compose 通过 Worker 写 InfluxDB 2.9，配置时须选择对应协议。
 
 ## 共同约定
 
@@ -81,7 +81,7 @@ Factory HMI 支持工站登录、提交审批和分块上传协议；本仓库�
 | 有效运行 | 使用确认的任务区间；暂停和非计划停机分别记录，不能按 CSV 末时间自动认定 |
 | 缺失值 | 不将 NaN、空值转换为 0；未采集的电流、电压、IMU 或振动不补造 |
 | 数据来源 | `synthetic` 与 `real` 显式区分；程序完成不自动等于用例通过 |
-| 原始附件 | API 当前登记路径和校验信息，文件仍在采集端；未实现对象存储上传 |
+| 原始附件 | API 登记路径和校验信息，原始文件保存在采集端 |
 
 RP1 Factory HMI 使用 PySide6 桌面与本机控制网关，负责 CAN、电机保护和轨迹回放；`test-runner` 提供独立轨迹与执行工具。真机 `motors_py`、台架驱动和验收判据按实际设备接入。环境箱、振动台、跌落和人工检查等步骤需要对应设备与人员执行。
 
@@ -103,4 +103,4 @@ python3 grafana/scripts/validate_dashboard.py
 python3 -m unittest discover -s influxdb/tests
 ```
 
-测试工具与上位机的安装和单测命令见各自 README。诊断脚本默认等待异步导出最多 30 秒。合成示例用于说明软件使用；机器人可靠性结论来自按用例执行的实测与复测。
+测试工具与上位机的安装和单测命令见各自 README。诊断脚本默认等待异步导出最多 30 秒。

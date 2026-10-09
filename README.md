@@ -10,11 +10,9 @@ Test rigs, software and methods for RP1 module aging and whole-robot reliability
 
 | Task | Entry point |
 | --- | --- |
-| Try the software without a robot | [Factory HMI with the fake backend](software/host/README.md#快速开始) · [Data services and synthetic demo](software/README.md#快速开始) |
+| Run the software | [Factory HMI with the fake backend](software/host/README.md#快速开始) · [Data services and synthetic demo](software/README.md#快速开始) |
 | Build a module test rig | [Hardware files and build guide](hardware/README.md) |
 | Plan and record a test | [18 test methods](test-cases/README.md) · [Inspection and run record](test-cases/checklist.md) |
-
-The HMI fake backend needs no motor SDK. The data-service demo generates a synthetic two-joint record over 12 simulated seconds, including a 2-second pause and 10 seconds of active time. Its result remains `INCONCLUSIVE`.
 
 ## Test Dashboards
 
@@ -22,7 +20,7 @@ The HMI fake backend needs no motor SDK. The data-service demo generates a synth
 | --- | --- |
 | ![Lower-body test dashboard](docs/media/test-dashboard-lower-body.jpg) | ![Upper-body test dashboard](docs/media/test-dashboard-upper-body.jpg) |
 
-These screenshots show the module-test dashboards used with the platform. Their frontend is not included in this repository.
+Module-test control and summary dashboards from the companion platform.
 
 ## Rig Demonstrations
 
@@ -30,16 +28,16 @@ These screenshots show the module-test dashboards used with the platform. Their 
 | --- | --- |
 | <img src="docs/media/arm-test.gif" width="320" alt="Arm module test rig in operation"> | <img src="docs/media/leg-test.gif" width="320" alt="Leg module test rig in operation"> |
 
-## Files and Scope
+## Contents
 
-- **Hardware:** mechanical CAD, drawings and BOMs for three rigs, plus a control-cabinet reference architecture. Electrical construction schematics, I/O and terminal schedules, and pin-by-pin harness drawings are not included.
-- **Software:** desktop HMI, local control gateway, trajectory tools, FastAPI service, PostgreSQL, InfluxDB and Grafana. Real-device SDKs, CAN setup and the control-cabinet PLC interface need integration on the target equipment.
-- **Test methods:** 18 drafts with conditions, steps and records. F0–F3 inspection levels and acceptance thresholds require project approval; the repository does not supply completed whole-robot qualification results.
-- **Offline analysis:** a [standalone Python tool and worked example](data-analysis/README.md) for active time, tracking error, temperature, missing samples and events. It needs no data services; cross-run comparison and HMI package conversion are not yet provided.
+- **Hardware:** mechanical CAD, drawings and BOMs for three rigs, plus a control-cabinet reference architecture.
+- **Software:** desktop HMI, local control gateway, trajectory tools, FastAPI service, PostgreSQL, InfluxDB and Grafana.
+- **Test methods:** 18 draft whole-robot methods with conditions, steps and record requirements.
+- **Offline analysis:** a [standalone Python tool and worked example](data-analysis/README.md) for active time, tracking error, temperature, missing samples and events.
 
-Test methods use RP1 reference conditions. Start with the [common execution rules](test-cases/common.md) and [parameters to confirm](test-cases/open-items.md) before applying them to equipment.
+For test preparation and execution, see the [common rules](test-cases/common.md) and [parameter checklist](test-cases/open-items.md).
 
-Native CAD packages are available in [Releases](https://github.com/Roboparty/rp1_test/releases/tag/v0.1.0). Extract the required package into the repository root; the outer folder name does not matter. See [CAD downloads](hardware/mechanical/README.md#下载-cad) for assembly paths. Manufacturing files and BOMs remain in the repository.
+Download native CAD packages from [Releases](https://github.com/Roboparty/rp1_test/releases/tag/v0.1.0) and extract them into the repository root. Assembly paths are listed in [CAD downloads](hardware/mechanical/README.md#下载-cad).
 
 ## License and Contributions
 

@@ -37,7 +37,7 @@ RP1_FACTORY_ALLOWED_CONFIG_ROOT="$PWD/scripts/config" \
   python -m factory_hmi.desktop --gateway-url http://127.0.0.1:8765
 ```
 
-在“样机配置与连接”页选择**仿真（fake）**和示例部位配置。`fake` 不需要电机 SDK，生成的数据用于功能开发。多个开发实例应使用不同端口和数据目录。
+在“样机配置与连接”页选择**仿真（fake）**和示例部位配置，使用合成遥测调试界面与功能。多个开发实例应使用不同端口和数据目录。
 
 命令行入口：`rp1-factory-gateway`、`rp1-factory-hmi`、`rp1-factory-uploader`、`rp1-factory-can-helper`。
 

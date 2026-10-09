@@ -9,5 +9,3 @@
 - `metadata.json`：`source_kind=synthetic`、`active_seconds=10`、两个确认区间、`test_outcome=INCONCLUSIVE`。
 - `config.snapshot.yaml`：public ID和采集配置，不含API key。
 - `manifest.json`：每个文件的字节数和SHA-256。
-
-补传后平台仍为INCONCLUSIVE。服务API的完成状态只说明记录接入，不能作为整机可靠性通过结果。

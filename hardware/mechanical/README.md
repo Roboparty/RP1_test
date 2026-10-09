@@ -16,7 +16,7 @@
 
 原生 SolidWorks 工程及依赖资源通过 [Releases](https://github.com/Roboparty/rp1_test/releases/tag/v0.1.0) 下载，加工图和 BOM 保留在仓库中。
 
-只需当前资料时，可下载[源码 ZIP](https://github.com/Roboparty/rp1_test/archive/refs/heads/main.zip)，或用 `git clone --depth 1 https://github.com/Roboparty/rp1_test.git`。已有 Git 历史仍保留原 CAD 文件，完整克隆会包含这部分体积。
+下载当前资料可使用[源码 ZIP](https://github.com/Roboparty/rp1_test/archive/refs/heads/main.zip)，或运行 `git clone --depth 1 https://github.com/Roboparty/rp1_test.git`。
 
 | 附件 | 总装入口（解压后） |
 | --- | --- |

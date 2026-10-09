@@ -14,9 +14,9 @@ source .venv/bin/activate
 rp1-test --help
 ```
 
-只需Python 3.10+、NumPy和PyYAML；测试依赖见`pyproject.toml`。MuJoCo为可选依赖，SDK与机器人模型不随包分发，见 [外部依赖说明](docs/dependencies.md)。
+运行依赖 Python 3.10+、NumPy 和 PyYAML；测试依赖见 `pyproject.toml`。MuJoCo 为可选仿真依赖，SDK 与机器人模型的安装见 [外部依赖说明](docs/dependencies.md)。
 
-## 无需机器人与模型的演示
+## 合成演示
 
 使用[合成演示配置](../demo-client/config/demo.yaml)，关闭模型指纹要求仅用于合成演示：
 
@@ -28,7 +28,7 @@ rp1-test trajectory validate demo.npz --config ../demo-client/config/demo.yaml
 rp1-test sim replay demo.npz --config ../demo-client/config/demo.yaml --headless --dry-run
 ```
 
-模拟器dry-run只检查输入，不导入MuJoCo或设备SDK。硬件dry-run仍要求与机器人匹配的真实模型指纹；具体配置与门控见 [SOP](docs/SOP.md)。
+模拟器 dry-run 校验输入；硬件 dry-run 校验与机器人匹配的真实模型指纹。具体配置与门控见 [SOP](docs/SOP.md)。
 
 ## 真机入口
 
@@ -52,7 +52,7 @@ rp1-test platform enqueue-run runs/RUN_ID --outbox .rp1-test/outbox.sqlite3
 rp1-test platform flush --base-url http://127.0.0.1:18080 --outbox .rp1-test/outbox.sqlite3
 ```
 
-补传使用 `RP1_TEST_API_TOKEN` 环境变量；入队前需要快照中的七个平台 public ID。[摄取协议](docs/ingestion-contract.md)使用 `/api/v1/ingestion`；SQLite 保存幂等键和服务器返回的 execution/stage ID，断网后可继续重试。本地文件只登记元数据，未上传对象文件时不会标记为可下载。
+补传使用 `RP1_TEST_API_TOKEN` 环境变量；入队前需要快照中的七个平台 public ID。[摄取协议](docs/ingestion-contract.md)使用 `/api/v1/ingestion`；SQLite 保存幂等键和服务器返回的 execution/stage ID，断网后可继续重试。本地文件通过附件元数据登记，原始文件保存在运行目录。
 
 `completed` 表示工具完成，上传判定为 `INCONCLUSIVE`；仅显式 `passed` 状态表示按判据确认通过。合成运行始终为 `INCONCLUSIVE`。整机[用例](../../test-cases/README.md)中的站立、行走、抓取和环境箱试验按各自步骤执行；轨迹回放只是其中一种测试手段。
 

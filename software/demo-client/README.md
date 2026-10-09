@@ -13,7 +13,7 @@ source .venv/bin/activate
 rp1-demo --help
 ```
 
-也可使用 `python -m rp1_demo`。真实轨迹生成、录制、preflight和回放使用同环境中的 `rp1-test`，不重复设备控制代码。
+也可使用 `python -m rp1_demo`。真实轨迹生成、录制、preflight 和回放使用同环境中的 `rp1-test`。
 
 ## 本地演示
 
@@ -55,7 +55,7 @@ rp1-demo status --outbox .runtime/outbox.sqlite3
 | 计时 | `confirmed_active_intervals`与`active_seconds`；暂停不计入 |
 | 上传结果 | `source_status=blocked`、`outcome=INCONCLUSIVE`，不自动判定通过 |
 
-接真机时采用runner的硬件入口、配置、SDK延迟加载、门控和watchdog。平台接收的角度为deg，转换集中在runner协议模块。演示客户端不直连PostgreSQL或InfluxDB。
+接真机时采用runner的硬件入口、配置、SDK延迟加载、门控和watchdog。平台接收的角度为deg，转换集中在runner协议模块。演示客户端经 Service API 接入数据平台。
 
 ## 读代码从哪里开始
 
