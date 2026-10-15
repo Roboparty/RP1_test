@@ -6,7 +6,7 @@
 
 | 资料与位置 | 来源及许可范围 |
 | --- | --- |
-| 台架总装中以规格或标准件命名的参考模型，例如共用 CAD 中的 `ABC03-5010-80B-40_001.sldprt`、`H10B-TG-4B-PG16（新）.SLDPRT`、`把手C-NUHFNS66.SLDPRT`，腿部 CAD 中的 `C-HLGW30-1400_r.sldprt`、`HGW30钳制器.SLDPRT`、轴承及紧固件模型 | 文件随 [CAD 附件](hardware/mechanical/README.md#下载-cad)保留在对应工程中。原始下载位置、版本和再分发许可尚未逐项确认，不能按文件名推定供应商或许可，也不纳入自有台架设计的 CERN 授权。 |
+| 原始台架工程中以规格或标准件命名的参考模型，例如共用 CAD 中的 `ABC03-5010-80B-40_001.sldprt`、`H10B-TG-4B-PG16（新）.SLDPRT`、`把手C-NUHFNS66.SLDPRT`，腿部 CAD 中的 `C-HLGW30-1400_r.sldprt`、`HGW30钳制器.SLDPRT`、轴承及紧固件模型 | 原始下载位置、版本和再分发许可尚未逐项确认，不能按文件名推定供应商或许可，也不纳入自有台架设计的 CERN 授权。 |
 | 腿部工程中的 `RP1.3下肢-测试（右腿）.SLDASM` 及其机器人参考部件 | 供台架设计与装配参考；未逐件确认参考部件权属。仅项目自有台架设计部分受本项目硬件许可覆盖。 |
 | CAD 工程附带的 `.p2m`、`.p2s`、`.hdr`、`.dds`、`softbox.png`、`denim1.jpg`、`grid10.jpg` 等外观和纹理文件 | 原始素材来源及再分发许可未记录，保留各自权利；不纳入软件、硬件或文档的统一授权。 |
 | `rp-logo-blue（无底图）.png`、HMI `robo_party_logo.png` 与 `rp1-factory-hmi.png` 等品牌图 | 品牌素材单独保留权利；本项目许可不授予 RoboParty 商标使用权。 |

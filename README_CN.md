@@ -30,14 +30,14 @@ RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包�
 
 ## 项目内容
 
-- **硬件：** 三类台架的机械 CAD、图纸、BOM 和控制柜参考架构。
+- **硬件：** 模块测试台架的加工资料、BOM 和控制柜参考架构。
 - **软件：** 桌面 HMI、本机控制网关、轨迹工具、FastAPI、PostgreSQL、InfluxDB 和 Grafana。
 - **测试方法：** 18 项整机测试方法草案，包含条件、步骤和记录要求。
 - **离线分析：** [独立 Python 工具与核对样例](data-analysis/README.md)，统计有效时长、跟随误差、温度、缺失样本和事件。
 
 测试准备与执行参见 [公共规则](test-cases/common.md) 和 [参数清单](test-cases/open-items.md)。
 
-原生 CAD 从 [Releases](https://github.com/Roboparty/rp1_test/releases/tag/v0.1.0) 下载，在仓库根目录解压。总装入口见 [CAD 下载](hardware/mechanical/README.md#下载-cad)。
+STEP 模型、加工图纸和 BOM 的入口见 [机械资料](hardware/mechanical/README.md)。
 
 ## 许可与贡献
 

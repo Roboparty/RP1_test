@@ -30,14 +30,14 @@ Module-test control and summary dashboards from the companion platform.
 
 ## Contents
 
-- **Hardware:** mechanical CAD, drawings and BOMs for three rigs, plus a control-cabinet reference architecture.
+- **Hardware:** manufacturing files and BOMs for module test rigs, plus a control-cabinet reference architecture.
 - **Software:** desktop HMI, local control gateway, trajectory tools, FastAPI service, PostgreSQL, InfluxDB and Grafana.
 - **Test methods:** 18 draft whole-robot methods with conditions, steps and record requirements.
 - **Offline analysis:** a [standalone Python tool and worked example](data-analysis/README.md) for active time, tracking error, temperature, missing samples and events.
 
 For test preparation and execution, see the [common rules](test-cases/common.md) and [parameter checklist](test-cases/open-items.md).
 
-Download native CAD packages from [Releases](https://github.com/Roboparty/rp1_test/releases/tag/v0.1.0) and extract them into the repository root. Assembly paths are listed in [CAD downloads](hardware/mechanical/README.md#下载-cad).
+See [mechanical files](hardware/mechanical/README.md) for STEP models, manufacturing drawings and BOMs.
 
 ## License and Contributions
 

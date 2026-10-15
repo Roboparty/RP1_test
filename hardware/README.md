@@ -10,7 +10,7 @@
 
 | 资料 | 入口 |
 | --- | --- |
-| 三类机械台架、总装、BOM 与加工图 | [机械资料](mechanical/README.md) |
+| 三类机械台架的 BOM 与加工资料 | [机械资料](mechanical/README.md) |
 | 控制柜参考架构与系统采购表 | [电气资料](electrical/README.md) |
 | 硬件搭建说明 | [阅读搭建说明](docs/hardware-build-manual.md) |
 | 台架与机器人、控制柜的接口 | [机电集成](docs/integration.md) |
