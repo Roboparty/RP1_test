@@ -12,6 +12,18 @@
 
 手臂与胸腔的通用加工资料和采购表见 [共用资料](手臂胸腔/共用资料/README.md)。STEP 模型与 PDF 加工图按料号对应，采购时核对零件号和修订。
 
+## 总装模型
+
+下载 [RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip)，解压后使用支持 Parasolid 的 CAD 软件打开对应 `.x_t` 文件。
+
+| 总装 | 文件 |
+| --- | --- |
+| 腿部老化测试平台 | `腿部老化测试平台总装.x_t` |
+| 胸部支架 | `胸部支架总装.x_t` |
+| 手部腿部支架 | `手部腿部支架总装.x_t` |
+
+压缩包提供总装几何模型；零件加工图和 BOM 见上方各台架资料入口。
+
 ## 获取资料
 
 下载[源码 ZIP](https://github.com/Roboparty/rp1_test/archive/refs/heads/main.zip)，或运行 `git clone --depth 1 https://github.com/Roboparty/rp1_test.git`。

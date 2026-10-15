@@ -37,7 +37,7 @@ Module-test control and summary dashboards from the companion platform.
 
 For test preparation and execution, see the [common rules](test-cases/common.md) and [parameter checklist](test-cases/open-items.md).
 
-See [mechanical files](hardware/mechanical/README.md) for STEP models, manufacturing drawings and BOMs.
+See [mechanical files](hardware/mechanical/README.md) for Parasolid assembly models, STEP part models, manufacturing drawings and BOMs. Download the three `.x_t` assemblies from [RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip).
 
 ## License and Contributions
 

@@ -37,7 +37,7 @@ RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包�
 
 测试准备与执行参见 [公共规则](test-cases/common.md) 和 [参数清单](test-cases/open-items.md)。
 
-STEP 模型、加工图纸和 BOM 的入口见 [机械资料](hardware/mechanical/README.md)。
+Parasolid 总装模型、STEP 零件模型、加工图纸和 BOM 的入口见 [机械资料](hardware/mechanical/README.md)。三个 `.x_t` 总装模型下载：[RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip)。
 
 ## 许可与贡献
 
