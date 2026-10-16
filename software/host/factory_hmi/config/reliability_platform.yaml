@@ -1,0 +1,25 @@
+# Optional workstation shortcuts. An empty list is valid: the operator selects
+# a campaign context from GET /api/v1/setup/campaigns/{id}/contexts. LOCAL_
+# filenames stay on this workstation. The official execution number is the
+# execution_code returned by the platform heartbeat.
+profiles: []
+
+# Optional reviewed shortcuts:
+# profiles:
+#   - key: upper-body-aging
+#     label: 上半身老化 / 正式工位
+#     campaign_id: null           # TODO: test.test_campaign public UUID
+#     cycle_id: null              # TODO: test.test_cycle public UUID
+#     segment_id: null            # TODO: test.analysis_segment public UUID
+#     asset_id: null              # TODO: test.asset public UUID
+#     configuration_id: null      # TODO: test.configuration_snapshot public UUID
+#     test_case_version_id: null  # TODO: catalog.test_case_version public UUID
+#     test_case_code: null        # TODO: actual published code, e.g. REL-SARM-001
+#     asset_code: null            # TODO: actual sample code, e.g. RP1.3-SARM-001
+#     station_code: null          # TODO: actual test.station code, e.g. MP-01
+#     station_id: null            # TODO: test.station public UUID
+#     bench_id: null              # Legacy alias for station_code; must match it
+#     stage_code: AGING
+#     stage_name: 老化运行
+#     subject_map:                # HMI joint name -> catalog subject code
+#       joint_name_from_yaml: null # TODO

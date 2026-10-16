@@ -1,7 +1,7 @@
 motor_id:
   [2, 3, 4, 5, 6, 7]
 motor_interface_type: ["canfd"]
-motor_interface: ["can0"]
+motor_interface: ["can1"]
 motor_num: [6]
 motor_type: ["LRO"]
 motor_model:

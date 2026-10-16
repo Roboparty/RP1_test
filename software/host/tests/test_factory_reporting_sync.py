@@ -68,13 +68,13 @@ class ReportingAndSyncTests(unittest.TestCase):
             + "\n",
             encoding="utf-8",
         )
-        self.test_id = "upper-body-aging_2608300000_RP1.3-UPPER-01_MP-01"
+        self.test_id = "REL-UPPER-001_2608300800_RP1.3-UPPER-001_MP-01"
         self.context = {
             "execution_uuid": "11111111-1111-4111-8111-111111111111",
             "test_id": self.test_id,
-            "test_case_id": "upper-body-aging",
+            "test_case_id": "REL-UPPER-001",
             "test_case_version": "1",
-            "sample_id": "RP1.3-UPPER-01",
+            "sample_id": "RP1.3-UPPER-001",
             "bench_id": "MP-01",
             "station_id": "station-a",
             "operator_id": "operator-a",
@@ -151,6 +151,29 @@ class ReportingAndSyncTests(unittest.TestCase):
             ),
             self.test_id,
         )
+
+    def test_temperature_limit_uses_peak_rise_after_transient_cools_down(self) -> None:
+        self.csv_path.write_text(
+            "time_s,joint_a_cmd_pos_rad,joint_a_pos_rad,joint_a_torque_nm,joint_a_temp_c,joint_a_error_id\n"
+            "0,0,0,1,20,0\n1,0,0,1,120,0\n2,0,0,1,20,0\n",
+            encoding="utf-8",
+        )
+        context = {**self.context, "active_seconds": 2, "ended_at": "2026-08-30T00:00:02Z",
+            "config": {"factory_hmi_acceptance": {**self.context["config"]["factory_hmi_acceptance"],
+                "required_active_seconds": 2, "max_temperature_rise_c": 10}}}
+        result = ReportManager(self.root / "data").finalize(self.csv_path, context)
+        joint = result.summary["joint_metrics"][0]
+        self.assertEqual(joint["temperature_rise_c"], 0)
+        self.assertEqual(joint["temperature_peak_rise_c"], 100)
+        self.assertEqual(result.summary["module_metrics"][0]["max_temperature_rise_c"], 100)
+        self.assertEqual(result.summary["verdict"]["status"], "failed")
+        rule = next(rule for rule in result.summary["verdict"]["rules"] if rule["name"] == "joint_a.temperature_peak_rise_c")
+        self.assertEqual((rule["actual"], rule["limit"], rule["result"]), (100, 10, "failed"))
+        from factory_hmi.desktop.operator_review import measured_lines, analysis_text
+        measured = measured_lines(result.summary)
+        self.assertIn("峰值温升 100.0 °C", measured)
+        self.assertIn("结束温升 0.0 °C", measured)
+        self.assertIn("峰值温升最高为 100.0 °C", analysis_text(result.summary))
 
     def test_outbox_restart_resume_and_uploader_review_poll(self) -> None:
         manager = ReportManager(self.root / "data")

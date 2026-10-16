@@ -396,21 +396,17 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 DECLARE
-    v_source_kind text;
     v_campaign bigint;
     v_asset bigint;
     v_config_asset bigint;
 BEGIN
-    SELECT source_kind, campaign_id, asset_id
-    INTO v_source_kind, v_campaign, v_asset
+    SELECT campaign_id, asset_id
+    INTO v_campaign, v_asset
     FROM test.runtime_interval
     WHERE id = NEW.runtime_interval_id;
 
     IF v_campaign IS DISTINCT FROM NEW.campaign_id OR v_asset IS DISTINCT FROM NEW.asset_id THEN
         RAISE EXCEPTION 'exposure assessment does not match runtime interval campaign/asset';
-    END IF;
-    IF NEW.eligible AND v_source_kind = 'LEGACY_REPORTED' THEN
-        RAISE EXCEPTION 'legacy reported test time cannot be MTBF eligible';
     END IF;
     IF NEW.configuration_snapshot_id IS NOT NULL THEN
         SELECT asset_id INTO v_config_asset

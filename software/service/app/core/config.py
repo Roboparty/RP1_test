@@ -12,7 +12,7 @@ class Settings(BaseSettings):
 
     app_name: str = "RP1 Reliability Platform API"
     app_env: str = "development"
-    app_version: str = "0.1.0"
+    app_version: str = "1.0.0"
     database_url: str = "postgresql+psycopg://rp1_app:change-this-app-password@postgres:5432/rp1_reliability"
     auth_mode: Literal["session", "development"] = "session"
     dev_user_public_id: str = "00000000-0000-7000-8000-000000000002"
@@ -31,13 +31,12 @@ class Settings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:8088",
     ]
-    worker_poll_seconds: float = Field(default=1.0, gt=0)
-    influx_enabled: bool = False
-    influx_url: str = "http://influxdb:8086"
-    influx_org: str = "rp1_test"
-    influx_bucket: str = "telemetry"
-    influx_token: SecretStr | None = None
-    influx_timeout_seconds: float = Field(default=20.0, gt=0, le=120)
+    worker_poll_seconds: float = 1.0
+    archive_root: str = "/var/lib/rp1/archives"
+    archive_max_chunk_bytes: int = Field(default=4 * 1024**2, ge=1024, le=16 * 1024**2)
+    archive_max_file_bytes: int = Field(default=50 * 1024**3, ge=1024, le=50 * 1024**3)
+    archive_query_memory_mb: int = Field(default=512, ge=128, le=4096)
+    archive_worker_poll_seconds: float = Field(default=2, ge=.1, le=60)
 
     @property
     def secure_auth_cookie(self) -> bool:

@@ -1,4 +1,4 @@
 #!/usr/bin/env sh
 set -eu
 cd "$(dirname "$0")/.."
-docker compose down
+exec scripts/compose.sh stop

@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, model_validator
 
 
 AssetKind = Literal["WHOLE_MACHINE", "MODULE"]
-TargetPartCode = Literal["SARM", "SLEG", "SYS", "UPPER", "LOWER", "CHEST", "HEAD", "BAT"]
+TargetPartCode = Literal["ARM", "SARM", "LEG", "SLEG", "SYS", "UPPER", "LOWER", "CHEST", "HEAD", "BAT"]
 MetricQualityStatus = Literal["VALID", "PARTIAL", "INVALID", "MISSING"]
 
 
@@ -47,6 +47,16 @@ class HomeTestCase(BaseModel):
     pending_seconds: float = 0
     execution_count: int = 0
     scope_asset_count: int = 0
+    historical_execution_count: int = 0
+    platform_execution_count: int = 0
+    passed_execution_count: int = 0
+    failed_execution_count: int = 0
+    inconclusive_execution_count: int = 0
+    not_evaluated_execution_count: int = 0
+    exception_count: int = 0
+    first_recorded_at: datetime | None = None
+    latest_recorded_at: datetime | None = None
+    station_codes: list[str] = Field(default_factory=list)
     target_duration_seconds: float | None = None
     target_progress_percent: float | None = None
 
@@ -268,6 +278,7 @@ class ExecutionListItem(BaseModel):
     active_elapsed_seconds: float = 0
     data_quality: str
     clock_quality: str
+    station_code: str | None = None
 
 
 class ExecutionList(BaseModel):
@@ -376,6 +387,7 @@ class ExecutionResultView(BaseModel):
     issues: str
     exception_count: int = Field(ge=0)
     reported_duration_seconds: float = Field(ge=0)
+    completed_cycles: int | None = Field(default=None, ge=0)
     executor_display: str
     environment_label: str
     last_data_at: datetime | None = None
@@ -478,6 +490,31 @@ class ExecutionJointAnalysis(BaseModel):
     data_cutoff_at: datetime | None
 
 
+class JointRecordSummary(BaseModel):
+    """Unreviewed scalar summary already stored for an execution.
+
+    These values are not a waveform and are not formal metric observations.
+    """
+
+    joint: str
+    source_kind: str
+    sample_count: int
+    mean_abs_torque_nm: float | None = None
+    peak_abs_torque_nm: float | None = None
+    bus_voltage_mean_v: float | None = None
+    bus_voltage_min_v: float | None = None
+    bus_voltage_max_v: float | None = None
+    bus_current_mean_abs_a: float | None = None
+    bus_current_peak_abs_a: float | None = None
+    estimated_mean_power_w: float | None = None
+    temp_start_c: float | None = None
+    temp_end_c: float | None = None
+    temp_rise_c: float | None = None
+    temp_max_c: float | None = None
+    tracking_rms_deg: float | None = None
+    formal_eligible: bool = False
+
+
 class ExecutionDetail(BaseModel):
     execution: ExecutionListItem
     configuration: ConfigurationView
@@ -488,6 +525,7 @@ class ExecutionDetail(BaseModel):
     result: ExecutionResultView | None = None
     peak_summary: list[MetricPeakView] = Field(default_factory=list)
     metrics: list[MetricObservationView] = Field(default_factory=list)
+    joint_records: list[JointRecordSummary] = Field(default_factory=list)
     data_quality_summary: dict[str, Any] = Field(default_factory=dict)
     evidence: list[ArtifactView] = Field(default_factory=list)
     as_of_at: datetime

@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import argparse
 import importlib.util
-import tempfile
 import sys
 import unittest
 from pathlib import Path
@@ -19,29 +17,6 @@ SPEC.loader.exec_module(builder)
 
 
 class FactoryHmiBuildTests(unittest.TestCase):
-    def test_external_motor_extension_rejects_missing_or_other_files(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            other = root / "driver.dll"
-            other.write_bytes(b"placeholder")
-            for path in (root / "motors_py.so", other):
-                with self.subTest(path=path.name):
-                    with self.assertRaises(argparse.ArgumentTypeError):
-                        builder.external_motor_extension(str(path))
-
-    def test_external_motor_extension_skips_sdk_source_build(self) -> None:
-        with tempfile.TemporaryDirectory() as directory:
-            extension = Path(directory) / "motors_py.test.so"
-            extension.write_bytes(b"placeholder")
-            with (
-                mock.patch.object(sys, "argv", [str(SCRIPT), "gateway", "--motor-extension", str(extension)]),
-                mock.patch.object(builder, "build") as build,
-                mock.patch.object(builder, "build_motors_py") as build_sdk,
-            ):
-                self.assertEqual(builder.main(), 0)
-            build_sdk.assert_not_called()
-            build.assert_called_once_with("gateway", one_dir=False, motors_py=extension.resolve())
-
     def test_privileged_helper_build_excludes_motor_runtime(self) -> None:
         with (
             mock.patch.object(builder.importlib.util, "find_spec", return_value=object()),
@@ -69,6 +44,8 @@ class FactoryHmiBuildTests(unittest.TestCase):
         self.assertIn("scripts.rp1_limb_common", command)
         self.assertIn("motors_py", command)
         self.assertIn("uvicorn.protocols.http.auto", command)
+        self.assertIn("--collect-all", command)
+        self.assertIn("pymodbus", command)
 
     def test_desktop_build_requires_pyside6(self) -> None:
         def find_spec(name: str):
@@ -106,7 +83,9 @@ class FactoryHmiBuildTests(unittest.TestCase):
             ROOT / "factory_hmi" / "desktop" / "app.py"
         ).read_text(encoding="utf-8")
 
-        self.assertIn('self.new_window_button = QPushButton("新增模块")', source)
+        self.assertIn('self.limb = QComboBox()', source)
+        self.assertIn('for key, label in LIMB_LABELS:', source)
+        self.assertIn('self.configure_button = QPushButton("应用模块")', source)
         self.assertIn("def _build_config_dialog(self) -> QDialog:", source)
         self.assertIn(
             'self.tabs.addTab(configuration_page, "样机配置与连接")',

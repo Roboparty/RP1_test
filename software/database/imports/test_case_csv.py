@@ -169,7 +169,7 @@ def import_test_cases(connection: Any, csv_path: Path) -> None:
             jsonb_build_object('pass_criteria', CAST(:pass_criteria AS text)),
             jsonb_build_array(
                 jsonb_build_object(
-                    'file', 'test_cases_catalog.csv',
+                    'file', 'test_cases_202609181013.csv',
                     'source', CAST(:source AS text)
                 )
             ),

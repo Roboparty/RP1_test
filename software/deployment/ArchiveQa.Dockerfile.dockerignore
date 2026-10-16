@@ -1,0 +1,7 @@
+**
+!service/
+!service/requirements.txt
+!service/requirements-dev.txt
+!service/requirements.lock
+!database/
+!database/requirements.txt

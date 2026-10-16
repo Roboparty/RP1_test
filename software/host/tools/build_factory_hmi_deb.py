@@ -17,7 +17,7 @@ from typing import Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_NAME = "rp1-factory-hmi"
+PACKAGE_NAME = "rp1-test-hmi"
 DEFAULT_VERSION = "0.1.0"
 DEFAULT_ARCHITECTURE = "amd64"
 STATION_NAMES = (
@@ -66,6 +66,8 @@ class BuildInputs:
     helper: Path
     motors_py: Path
     station_defaults: Path
+    plc_config: Path
+    reliability_profiles: Path
     stations: tuple[Path, ...]
 
 
@@ -124,6 +126,10 @@ def validate_inputs(root: Path = ROOT) -> BuildInputs:
     uploader = root / "dist" / "rp1-factory-uploader"
     helper = root / "dist" / "factory-hmi-can-helper"
     station_defaults = root / "factory_hmi" / "config" / "station_defaults.yaml"
+    plc_config = root / "factory_hmi" / "config" / "plc_cabinet.yaml"
+    reliability_profiles = (
+        root / "factory_hmi" / "config" / "reliability_platform.yaml"
+    )
     stations = tuple(root / "scripts" / "config" / name for name in STATION_NAMES)
     problems: list[str] = []
 
@@ -136,6 +142,12 @@ def validate_inputs(root: Path = ROOT) -> BuildInputs:
         problems.append(helper_problem)
     if not station_defaults.is_file():
         problems.append(f"missing station defaults: {station_defaults}")
+    if not plc_config.is_file():
+        problems.append(f"missing PLC configuration: {plc_config}")
+    if not reliability_profiles.is_file():
+        problems.append(
+            f"missing reliability platform profiles: {reliability_profiles}"
+        )
 
     motors_candidates = _motors_candidates(root)
     if not motors_candidates:
@@ -169,6 +181,8 @@ def validate_inputs(root: Path = ROOT) -> BuildInputs:
         helper=helper,
         motors_py=motors_candidates[0],
         station_defaults=station_defaults,
+        plc_config=plc_config,
+        reliability_profiles=reliability_profiles,
         stations=stations,
     )
 
@@ -265,21 +279,21 @@ def _stage_package(
 
     _copy_application(
         inputs.gateway,
-        package_root / "opt" / "rp1-factory-hmi" / "gateway",
+        package_root / "opt" / "rp1-test-hmi" / "gateway",
     )
     _copy_application(
         inputs.desktop,
-        package_root / "opt" / "rp1-factory-hmi" / "desktop",
+        package_root / "opt" / "rp1-test-hmi" / "desktop",
     )
     _copy_application(
         inputs.uploader,
-        package_root / "opt" / "rp1-factory-hmi" / "uploader",
+        package_root / "opt" / "rp1-test-hmi" / "uploader",
     )
     _copy_file(
         inputs.motors_py,
         package_root
         / "opt"
-        / "rp1-factory-hmi"
+        / "rp1-test-hmi"
         / "motors"
         / "lib"
         / "python3"
@@ -290,28 +304,38 @@ def _stage_package(
 
     _copy_file(
         debian_source / "gateway.env",
-        package_root / "etc" / "rp1-factory-hmi" / "gateway.env",
+        package_root / "etc" / "rp1-test-hmi" / "gateway.env",
         0o640,
     )
     _copy_file(
         debian_source / "uploader.env",
-        package_root / "etc" / "rp1-factory-hmi" / "uploader.env",
+        package_root / "etc" / "rp1-test-hmi" / "uploader.env",
         0o640,
     )
     _copy_file(
         debian_source / "can-policy.yaml",
-        package_root / "etc" / "rp1-factory-hmi" / "can-policy.yaml",
+        package_root / "etc" / "rp1-test-hmi" / "can-policy.yaml",
         0o640,
     )
     _copy_file(
         inputs.station_defaults,
-        package_root / "etc" / "rp1-factory-hmi" / "station_defaults.yaml",
+        package_root / "etc" / "rp1-test-hmi" / "station_defaults.yaml",
+        0o640,
+    )
+    _copy_file(
+        inputs.plc_config,
+        package_root / "etc" / "rp1-test-hmi" / "plc_cabinet.yaml",
+        0o640,
+    )
+    _copy_file(
+        inputs.reliability_profiles,
+        package_root / "etc" / "rp1-test-hmi" / "reliability_platform.yaml",
         0o640,
     )
     for station in inputs.stations:
         _copy_file(
             station,
-            package_root / "etc" / "rp1-factory-hmi" / "stations" / station.name,
+            package_root / "etc" / "rp1-test-hmi" / "stations" / station.name,
             0o640,
         )
     for schema_name in (
@@ -320,33 +344,34 @@ def _stage_package(
     ):
         _copy_file(
             inputs.root / "factory_hmi" / "contracts" / schema_name,
-            package_root / "usr" / "share" / "rp1-factory-hmi" / "contracts" / schema_name,
+            package_root / "usr" / "share" / "rp1-test-hmi" / "contracts" / schema_name,
             0o644,
         )
 
     for directory in (
-        package_root / "var" / "lib" / "rp1-factory-hmi" / "trajectories",
-        package_root / "var" / "lib" / "rp1-factory-hmi" / "records",
-        package_root / "var" / "lib" / "rp1-factory-hmi" / "executions",
-        package_root / "var" / "lib" / "rp1-factory-hmi" / "exports",
-        package_root / "var" / "lib" / "rp1-factory-hmi" / "sync",
+        package_root / "var" / "lib" / "rp1-test-hmi" / "trajectories",
+        package_root / "var" / "lib" / "rp1-test-hmi" / "records",
+        package_root / "var" / "lib" / "rp1-test-hmi" / "executions",
+        package_root / "var" / "lib" / "rp1-test-hmi" / "exports",
+        package_root / "var" / "lib" / "rp1-test-hmi" / "sync",
+        package_root / "var" / "lib" / "rp1-test-hmi" / "plc",
     ):
         directory.mkdir(parents=True, exist_ok=True)
         directory.chmod(0o2770)
 
     _copy_file(
         inputs.root / "packaging" / "systemd" / "rp1-factory-gateway.service",
-        package_root / "lib" / "systemd" / "system" / "rp1-factory-gateway.service",
+        package_root / "lib" / "systemd" / "system" / "rp1-test-gateway.service",
         0o644,
     )
     _copy_file(
         inputs.root / "packaging" / "systemd" / "rp1-factory-uploader.service",
-        package_root / "lib" / "systemd" / "system" / "rp1-factory-uploader.service",
+        package_root / "lib" / "systemd" / "system" / "rp1-test-uploader.service",
         0o644,
     )
     _copy_file(
         debian_source / "rp1-factory-hmi.desktop",
-        package_root / "usr" / "share" / "applications" / "rp1-factory-hmi.desktop",
+        package_root / "usr" / "share" / "applications" / "rp1-test-hmi.desktop",
         0o644,
     )
     _copy_file(
@@ -358,7 +383,7 @@ def _stage_package(
         / "hicolor"
         / "512x512"
         / "apps"
-        / "rp1-factory-hmi.png",
+        / "rp1-test-hmi.png",
         0o644,
     )
     _copy_file(
@@ -366,7 +391,7 @@ def _stage_package(
         package_root
         / "usr"
         / "lib"
-        / "rp1-factory-hmi"
+        / "rp1-test-hmi"
         / "factory-hmi-can-helper",
         0o755,
     )
@@ -377,7 +402,7 @@ def _stage_package(
         / "share"
         / "polkit-1"
         / "actions"
-        / "com.rp1.factory-hmi.policy",
+        / "com.rp1.test-hmi.policy",
         0o644,
     )
     _copy_file(
@@ -387,7 +412,7 @@ def _stage_package(
         / "share"
         / "polkit-1"
         / "rules.d"
-        / "50-rp1-factory-hmi.rules",
+        / "50-rp1-test-hmi.rules",
         0o644,
     )
     _copy_file(
@@ -398,7 +423,7 @@ def _stage_package(
         / "polkit-1"
         / "localauthority"
         / "10-vendor.d"
-        / "10-rp1-factory-hmi.pkla",
+        / "10-rp1-test-hmi.pkla",
         0o644,
     )
     # Match polkitd's protected ownership hierarchy instead of relaxing it
@@ -409,6 +434,14 @@ def _stage_package(
     for script in ("postinst", "prerm", "postrm"):
         _copy_file(debian_source / script, debian_target / script, 0o755)
     _copy_file(debian_source / "conffiles", debian_target / "conffiles", 0o644)
+
+    notice_source = inputs.root / "third-party-licenses"
+    if notice_source.is_dir():
+        shutil.copytree(
+            notice_source,
+            package_root / "usr/share/doc/rp1-test-hmi/third-party-licenses",
+            dirs_exist_ok=True,
+        )
 
     installed_size = _installed_size_kib(package_root)
     control_template = (debian_source / "control").read_text(encoding="utf-8")

@@ -22,6 +22,7 @@ setup(
         "fastapi",
         "numpy",
         "pydantic",
+        "pymodbus==3.8.6",
         "pyroute2",
         "PyYAML",
         "uvicorn[standard]",
@@ -29,7 +30,7 @@ setup(
     extras_require={
         "desktop": ["PySide6"],
         "build": ["PyInstaller"],
-        "test": ["httpx2", "pytest", "jsonschema"],
+        "test": ["httpx", "pytest", "jsonschema"],
     },
     entry_points={
         "console_scripts": [

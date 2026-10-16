@@ -9,9 +9,6 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.errors import ApiError
-from app.core.config import get_settings
-from app.services.influx import telemetry_lines
-from app.repositories.influx_exports import enqueue_export
 from app.schemas.ingestion import (
     ArtifactMetadataRequest,
     EventBatchRequest,
@@ -183,15 +180,8 @@ class IngestionRepository:
                        execution.configuration_snapshot_id,
                        execution.normalized_started_at,
                        execution.normalized_ended_at, execution.status,
-                       execution.telemetry_source_kind, test_case.case_code,
-                       CASE WHEN asset.asset_kind = 'WHOLE_MACHINE' THEN 'SYS'
-                            ELSE profile.target_part_code END AS target_part_code,
                        segment.id AS segment_id
                 FROM test.test_execution execution
-                JOIN catalog.test_case_version version ON version.id = execution.test_case_version_id
-                JOIN catalog.test_case test_case ON test_case.id = version.test_case_id
-                JOIN test.asset asset ON asset.id = execution.asset_id
-                LEFT JOIN test.module_profile profile ON profile.asset_id = asset.id
                 JOIN test.analysis_segment segment
                   ON segment.id = execution.ingestion_segment_id
                 WHERE execution.public_id = :execution_id
@@ -205,21 +195,6 @@ class IngestionRepository:
                 404, "not_found", "未找到属于当前采集源的execution。"
             )
         return dict(row)
-
-    def _validate_subject(self, execution: dict[str, Any], subject_code: str, metric_code: str) -> None:
-        subject = self.session.execute(text("""
-            SELECT subject_kind, target_part_code
-            FROM catalog.telemetry_subject
-            WHERE subject_code = :subject_code AND enabled
-        """), {"subject_code": subject_code}).mappings().first()
-        if subject is None or subject["target_part_code"] != execution["target_part_code"]:
-            raise ApiError(422, "subject_mismatch", "遥测主体与测试对象部位不匹配。")
-        allowed = {
-            "BATTERY_CHANNEL": {"JOINT-CURRENT", "JOINT-TEMPERATURE", "JOINT-VIBRATION-RMS"},
-            "FRAME_POINT": {"JOINT-TORQUE", "JOINT-TEMPERATURE", "JOINT-VIBRATION-RMS"},
-        }
-        if subject["subject_kind"] in allowed and metric_code not in allowed[subject["subject_kind"]]:
-            raise ApiError(422, "subject_metric_mismatch", "该指标不适用于指定遥测主体。")
 
     def execution_id_by_producer(
         self, producer_execution_key: str
@@ -427,13 +402,13 @@ class IngestionRepository:
                         station_id, ingestion_segment_id, source_id,
                         source_execution_key, status,
                         source_time, received_at, normalized_started_at,
-                        code_timestamp, clock_quality, data_quality, telemetry_source_kind
+                        code_timestamp, clock_quality, data_quality
                     ) VALUES (
                         'GENERATED', :campaign_id, :cycle_id, :asset_id,
                         :configuration_id, :test_case_version_id, :station_id,
                         :segment_id, :source_id, :producer_key, 'RUNNING', :started_at,
                         clock_timestamp(), :started_at, :started_at,
-                        'VALID', 'VALID', :telemetry_source_kind
+                        'VALID', 'VALID'
                     )
                     RETURNING id, public_id, execution_code
                     """
@@ -443,7 +418,6 @@ class IngestionRepository:
                     "source_id": source["id"],
                     "producer_key": payload.producer_key,
                     "started_at": payload.started_at,
-                    "telemetry_source_kind": payload.source_metadata.get("source_kind", "real"),
                 },
             ).mappings().one()
             self.session.execute(
@@ -801,7 +775,6 @@ class IngestionRepository:
                         f"{metric['canonical_unit']}；采集端必须在发送前完成rad转换。"
                     ),
                 )
-            self._validate_subject(execution, series.subject_code, series.metric_code)
             series_row = self.session.execute(
                 text(
                     """
@@ -887,20 +860,6 @@ class IngestionRepository:
                     },
                 )
                 accepted_points += 1
-        if get_settings().influx_enabled:
-            try:
-                lines, exported_count = telemetry_lines(
-                    payload, run_id=str(execution_id),
-                    case_id=execution["case_code"],
-                    source_kind=execution["telemetry_source_kind"],
-                )
-            except ValueError as exc:
-                raise ApiError(422, "telemetry_projection_invalid", str(exc)) from exc
-            if exported_count:
-                enqueue_export(
-                    self.session, batch_id=batch_id, source_id=source["id"],
-                    execution_id=execution["id"], lines=lines, count=exported_count,
-                )
         self._finish_batch(batch_id, accepted_points)
         response = IngestionResult(
             execution_id=execution_id,

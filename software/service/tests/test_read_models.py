@@ -12,8 +12,10 @@ from app.repositories.read_models import (
     ReadModelRepository,
     _context_is_stale,
     _decode_cursor,
+    _decode_execution_cursor,
     _downsample_points,
     _encode_cursor,
+    _encode_execution_cursor,
     _freshness,
     _is_source_warning,
     _live_elapsed_seconds,
@@ -39,6 +41,18 @@ def test_cursor_round_trip_and_invalid_cursor_contract():
     with pytest.raises(ApiError) as error:
         _decode_cursor("not-a-cursor", 2)
     assert error.value.code == "invalid_cursor"
+    assert error.value.status_code == 422
+
+
+def test_execution_cursor_keeps_start_time_and_id():
+    started = datetime(2026, 10, 14, 7, 26, 34, 567464, tzinfo=timezone.utc)
+    cursor = _encode_execution_cursor(started, 136)
+    assert _decode_execution_cursor(cursor) == (started, 136)
+    assert _decode_execution_cursor(None) == (None, None)
+    null_cursor = _encode_execution_cursor(None, 4)
+    assert _decode_execution_cursor(null_cursor) == (None, 4)
+    with pytest.raises(ApiError) as error:
+        _decode_execution_cursor(_encode_cursor(136))
     assert error.value.status_code == 422
 
 

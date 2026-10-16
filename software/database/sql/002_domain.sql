@@ -1293,7 +1293,6 @@ WHERE ea.eligible
   AND ea.assignment_status = 'CONFIRMED'
   AND ea.quality_status IN ('VALID', 'PARTIAL')
   AND esa.inclusion_status = 'INCLUDED'
-  AND ri.source_kind <> 'LEGACY_REPORTED'
   AND NOT ri.voided;
 
 -- ---------------------------------------------------------------------------

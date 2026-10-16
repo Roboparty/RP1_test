@@ -73,6 +73,19 @@ QPushButton#headerActionButton:hover {
 QPushButton#headerActionButton:pressed {
     background: #D8E8F4;
 }
+QWidget#appHeader QLineEdit#headerField {
+    min-height: 34px;
+    max-height: 34px;
+    padding: 0 10px;
+    color: #162434;
+    background: #FFFFFF;
+    border: 1px solid #D6E2EB;
+    border-radius: 6px;
+}
+QWidget#appHeader QPushButton {
+    min-height: 34px;
+    max-height: 34px;
+}
 
 QFrame#sideNavigation {
     background: #FFFFFF;
@@ -176,6 +189,43 @@ QLabel#workflowSteps {
     padding: 9px 14px;
     font-weight: 700;
 }
+QLabel#flowStep {
+    min-height: 36px;
+    color: #526476;
+    background: #F3F6F9;
+    border: 1px solid #DCE4EB;
+    border-radius: 7px;
+    padding: 0 10px;
+    font-weight: 700;
+}
+QLabel#flowStep[tone="success"] {
+    color: #18754F;
+    background: #EDF9F3;
+    border-color: #BFDCCF;
+}
+QLabel#flowStep[tone="warning"] {
+    color: #8C5B14;
+    background: #FFF8EB;
+    border-color: #EBD19F;
+}
+QLabel#flowStep[tone="danger"] {
+    color: #A82626;
+    background: #FFF3F2;
+    border-color: #F0C3BF;
+}
+QLabel#flowArrow {
+    color: #8A98A8;
+    font-size: 18px;
+    font-weight: 700;
+}
+QLabel#controlHint {
+    min-height: 28px;
+    color: #607284;
+    background: #F7F9FC;
+    border-radius: 5px;
+    padding: 4px 8px;
+    font-size: 12px;
+}
 QLabel#infoPanel,
 QLabel#summaryPanel {
     color: #405368;
@@ -231,6 +281,33 @@ QFrame#phasePanel {
 }
 QFrame#statusTile {
     min-height: 66px;
+}
+QFrame#channelCard {
+    background: #FBFCFE;
+    border: 1px solid #DCE4EB;
+    border-radius: 8px;
+}
+QLabel#channelTitle {
+    color: #173A58;
+    font-size: 15px;
+    font-weight: 700;
+}
+QLabel#channelState {
+    min-height: 23px;
+    color: #536679;
+    font-weight: 600;
+}
+QLabel#channelState[tone="success"] { color: #18754F; }
+QLabel#channelState[tone="warning"] { color: #8C5B14; }
+QLabel#channelState[tone="danger"] { color: #A82626; }
+QLabel#channelMetric {
+    color: #203C55;
+    background: #EEF4F9;
+    border-radius: 6px;
+    padding: 8px;
+    font-family: "DejaVu Sans Mono", "Noto Sans Mono CJK SC", monospace;
+    font-size: 13px;
+    font-weight: 600;
 }
 QGroupBox#workflowCard {
     margin-top: 12px;
@@ -480,4 +557,15 @@ QScrollBar::handle:horizontal {
 QScrollBar::add-line:horizontal,
 QScrollBar::sub-line:horizontal {
     width: 0;
+}
+
+/* Named action colors must not override their disabled appearance. */
+QPushButton#primaryButton:disabled,
+QPushButton#startButton:disabled,
+QPushButton#dangerButton:disabled,
+QPushButton#outlineButton:disabled,
+QPushButton#criticalOutlineButton:disabled {
+    color: #8A98A8;
+    background: #EDF1F5;
+    border-color: #D9E0E7;
 }

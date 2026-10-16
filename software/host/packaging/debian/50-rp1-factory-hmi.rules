@@ -1,11 +1,11 @@
 polkit.addRule(function(action, subject) {
-    var helper = "/usr/lib/rp1-factory-hmi/factory-hmi-can-helper";
+    var helper = "/usr/lib/rp1-test-hmi/factory-hmi-can-helper";
     var isFactoryAction =
-        action.id == "com.rp1.factory-hmi.configure-can" ||
+        action.id == "com.rp1.test-hmi.configure-can" ||
         (action.id == "org.freedesktop.policykit.exec" &&
          action.lookup("program") == helper);
     var isFactoryOperator =
-        subject.user == "rp1-factory-gateway" ||
+        subject.user == "rp1-test-gateway" ||
         subject.isInGroup("rp1-factory");
 
     if (isFactoryAction && isFactoryOperator) {

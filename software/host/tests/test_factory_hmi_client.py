@@ -104,6 +104,11 @@ class GatewayClientTest(unittest.TestCase):
             json.loads(enable_request.data),
             {"physical_estop_confirmed": True},
         )
+        self.client.reset_motor_fault()
+        self.assertEqual(
+            urlopen.call_args.args[0].full_url,
+            self.client.base_url + "/api/v1/motors/reset-fault",
+        )
 
     @mock.patch("factory_hmi.client.request.urlopen")
     def test_configuration_upload_and_editable_overrides(self, urlopen: mock.Mock) -> None:

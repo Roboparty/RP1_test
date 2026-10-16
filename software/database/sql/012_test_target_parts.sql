@@ -177,5 +177,5 @@ CREATE POLICY authenticated_select ON catalog.test_target_part
 CREATE POLICY admin_write ON catalog.test_target_part
     FOR ALL USING (iam.is_system_admin()) WITH CHECK (iam.is_system_admin());
 
-GRANT SELECT, INSERT, UPDATE ON catalog.test_target_part TO __RP1_APP_USER__;
-GRANT SELECT ON catalog.test_target_part TO __RP1_READONLY_USER__;
+GRANT SELECT, INSERT, UPDATE ON catalog.test_target_part TO rp1_app;
+GRANT SELECT ON catalog.test_target_part TO rp1_readonly;

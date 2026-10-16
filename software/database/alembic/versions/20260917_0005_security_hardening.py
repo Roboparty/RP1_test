@@ -2,11 +2,17 @@
 
 Revision ID: 20260917_0005
 Revises: 20260917_0004
-Create Date: 2026-09-17"""
+Create Date: 2026-09-17
+"""
+
 from __future__ import annotations
 
+import os
+import re
+from pathlib import Path
+
 from alembic import op
-from imports.sql_migrations import read_sql, role_identifier
+
 
 revision = "20260917_0005"
 down_revision = "20260917_0004"
@@ -14,13 +20,27 @@ branch_labels = None
 depends_on = None
 
 
+SQL_ROOT = Path(__file__).resolve().parents[2] / "sql"
+ROLE_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def _role(name: str, default: str) -> str:
+    value = os.environ.get(name, default)
+    if not ROLE_PATTERN.fullmatch(value):
+        raise RuntimeError(f"unsafe PostgreSQL role name in {name}")
+    return value
+
+
 def upgrade() -> None:
-    op.get_bind().exec_driver_sql(read_sql("005_security_hardening.sql").replace("%", "%%"))
+    sql = (SQL_ROOT / "005_security_hardening.sql").read_text(encoding="utf-8")
+    sql = sql.replace("rp1_app", _role("RP1_APP_USER", "rp1_app"))
+    sql = sql.replace("rp1_readonly", _role("RP1_READONLY_USER", "rp1_readonly"))
+    op.get_bind().exec_driver_sql(sql)
 
 
 def downgrade() -> None:
-    app_role = role_identifier("RP1_APP_USER", "rp1_app")
-    readonly_role = role_identifier("RP1_READONLY_USER", "rp1_readonly")
+    app_role = _role("RP1_APP_USER", "rp1_app")
+    readonly_role = _role("RP1_READONLY_USER", "rp1_readonly")
     op.execute(
         f"GRANT SELECT ON iam.user_credential, iam.auth_session TO {readonly_role}"
     )

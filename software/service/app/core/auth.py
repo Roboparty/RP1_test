@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 import hmac
 from typing import Annotated
+from urllib.parse import unquote
 from uuid import UUID
 
 from fastapi import Depends, Header, Request, Security
@@ -16,6 +17,10 @@ from app.schemas.security import Role
 
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def change_reason(value: str | None) -> str:
+    return unquote(value) if value else ""
 service_bearer = HTTPBearer(
     auto_error=False,
     scheme_name="ServiceBearer",
@@ -86,7 +91,7 @@ def get_request_actor(
         return RequestActor(
             public_id=principal.id,
             request_id=request_id,
-            change_reason=x_change_reason or "edge collector ingestion",
+            change_reason=change_reason(x_change_reason) or "edge collector ingestion",
             source_ip=source_ip,
             username=principal.username,
             display_name=principal.display_name,
@@ -112,7 +117,7 @@ def get_request_actor(
         return RequestActor(
             public_id=user_id,
             request_id=request_id,
-            change_reason=x_change_reason or "",
+            change_reason=change_reason(x_change_reason),
             source_ip=source_ip,
             username="development",
             display_name="Development user",
@@ -161,7 +166,7 @@ def get_request_actor(
     return RequestActor(
         public_id=principal.id,
         request_id=request_id,
-        change_reason=x_change_reason or "",
+        change_reason=change_reason(x_change_reason),
         source_ip=source_ip,
         username=principal.username,
         display_name=principal.display_name,

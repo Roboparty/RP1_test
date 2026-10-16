@@ -1,90 +1,44 @@
-# RP1 Factory HMI
+# RP1 TEST HMI（PLC/CAN）
 
-RP1 模块老化与调试的桌面上位机，提供样机配置、CAN 连接、轨迹回放、关节控制、电机监控、标零和执行记录管理。桌面使用 PySide6，控制网关使用 FastAPI。
+PySide6桌面、本机FastAPI网关、Modbus TCP PLC、SocketCAN控制和本地记录源码。本版包含共享PLC控制、命令版本/回执、模拟/监控模式、趋势、故障处理、用例选择、核实、在线工位和 `reliability_v1` 归档。
 
-## 架构
+## 离线运行
 
-```text
-PySide6 桌面 ── HTTP / WebSocket ── 本机控制网关
-                                      ├─ 控制状态机、租约、安全保护
-                                      ├─ SocketCAN / motors_py
-                                      └─ CSV、报告、执行包、SQLite outbox
-                                                       └─ 平台接入
-```
-
-网关负责运动控制，桌面负责交互与显示。每个模块窗口拥有独立会话和控制租约；同一 CAN 接口只能被一个会话占用。轨迹工具见 [test-runner](../test-runner/README.md)，平台链路示例见 [demo-client](../demo-client/README.md)。
-
-## 快速开始
-
-需要 Python 3.10 及以上。桌面需要 Qt 图形环境；无硬件开发使用 `fake` 后端。
+在 `software/` 中：
 
 ```bash
-cd rp1_test/software/host
-python3 -m venv .venv
-. .venv/bin/activate
-python -m pip install -e ".[desktop,test]" -c constraints-tested.txt
+python3 -m venv .venv-hmi
+.venv-hmi/bin/python -m pip install -r host/requirements.lock
+.venv-hmi/bin/python host/launch.py --offline-check
 ```
 
-先启动本机网关，再在另一个终端激活同一虚拟环境并启动桌面：
+该入口强制专用mock配置，禁用CAN和平台。仅验证网关可加 `--gateway-only --duration 3`。默认端口8766；`--port`、`--state-dir` 可隔离实例。
+
+安装包使用 `rp1-test-hmi` 启动；`rp1-test-hmi status`、`rp1-test-hmi stop` 管理自己的实例。配置、日志和数据保存在用户状态目录。
+
+## 源码
+
+| 目录 | 职责 |
+|---|---|
+| `factory_hmi/desktop/` | 测试/PLC页、模块窗口、监控和核实 |
+| `factory_hmi/gateway/` | 本机API、WebSocket、会话与租约 |
+| `factory_hmi/plc/` | Modbus、状态机、共享控制、时效与故障 |
+| `factory_hmi/core/` | 后端、测试服务、记录与报告 |
+| `factory_hmi/sync/` | 平台会话、presence、SQLite队列与归档 |
+| `scripts/`、`factory_hmi/config/` | 采样、部位与设备配置模板 |
+| `tools/`、`packaging/`、`motors/` | 构建、安装入口与SDK源码 |
+
+## 平台与协议
+
+从 [软件主入口](../README.md) 启动匹配平台，网页登录改密后在HMI登录。配置实际HTTPS地址和本站CA。在线心跳独立；CSV先保存本地，核实并显式提交后归档，支持恢复、审批和驳回重提。“其他”填写名称、对象和工位后可先归档。
+
+[V1.0](docs/HOST_MODBUS_TCP_PROTOCOL_V1.0.md) · [V1.1](docs/HOST_MODBUS_TCP_PROTOCOL_V1.1.md) · [V1.2](docs/HOST_MODBUS_TCP_PROTOCOL_V1.2.md) · [PLC映射](docs/PLC_INTERFACE_MAPPING.md) · [本地构建](docs/LOCAL_CONTROL_BUILD.md) · [故障恢复](docs/MOTOR_FAULT_RECOVERY.md)
+
+在 `software/` 执行 `bash scripts/build-hmi.sh`，输出到 `host/dist/`。SDK从源码构建，保留原许可通知。
 
 ```bash
-# 终端 1
-RP1_FACTORY_ALLOWED_CONFIG_ROOT="$PWD/scripts/config" \
-  python -m factory_hmi.gateway --port 8765 --data-root "$PWD/.runtime/fake"
-
-# 终端 2
-RP1_FACTORY_ALLOWED_CONFIG_ROOT="$PWD/scripts/config" \
-  python -m factory_hmi.desktop --gateway-url http://127.0.0.1:8765
+cd software/host
+PYTHONDONTWRITEBYTECODE=1 QT_QPA_PLATFORM=offscreen python3 -m pytest tests -q
 ```
 
-在“样机配置与连接”页选择**仿真（fake）**和示例部位配置，使用合成遥测调试界面与功能。多个开发实例应使用不同端口和数据目录。
-
-命令行入口：`rp1-factory-gateway`、`rp1-factory-hmi`、`rp1-factory-uploader`、`rp1-factory-can-helper`。
-
-## 目录与阅读入口
-
-| 目录 | 入口 | 职责 |
-| --- | --- | --- |
-| `factory_hmi/desktop` | [app.py](factory_hmi/desktop/app.py)、[client.py](factory_hmi/client.py) | 工作页、监控/标零弹窗、模块窗口和网关客户端 |
-| `factory_hmi/core` | [service.py](factory_hmi/core/service.py)、[controller.py](factory_hmi/core/controller.py) | 状态机、轨迹预检与回放、手动移动、安全保护 |
-| `factory_hmi/gateway` | [app.py](factory_hmi/gateway/app.py)、[lease.py](factory_hmi/gateway/lease.py) | API、状态推送、控制租约、CAN 独占与失联处理 |
-| `factory_hmi/contracts` | [执行包契约](factory_hmi/contracts) | 执行包和老化摘要的 JSON Schema |
-| `factory_hmi/sync` | [outbox.py](factory_hmi/sync/outbox.py)、[uploader.py](factory_hmi/sync/uploader.py) | 持久化队列、分块上传、重试及审批状态 |
-| `scripts` | [部位配置](scripts/config)、[遥测记录](scripts/log_motor_telemetry.py) | 运动映射、反馈采集、看门狗与电机配置 |
-| `tools / packaging / tests` | [工具](tools)、[打包模板](packaging)、[测试](tests) | 构建、部署和开发测试 |
-
-[station_defaults.yaml](factory_hmi/config/station_defaults.yaml) 提供通用配置。实际工位应覆盖关节限位、电气阈值、温度阈值和老化验收条件；200 Hz 是默认控制目标，实际周期需在设备上测量。
-
-## 数据与平台接入
-
-遥测、报告和执行包先保存到本地数据根，上传状态保存到 SQLite outbox。平台不可用时保留待上传记录；同一个 outbox 只由一个上传进程消费。
-
-支持两类接入协议：
-
-- **审批上传**：`/api/auth/station-login`、`/api/submissions`、`/api/uploads`，用于交互式身份与审批流程。
-- **可靠性数据接入**：通过执行包桥接调用 [service](../service/README.md) 的 `/api/v1/ingestion`。用法见 [可靠性平台接入](docs/RELIABILITY_BRIDGE.md)。
-
-两类协议的身份、上下文和数据结构不同，需使用对应客户端。
-
-## 真机与打包
-
-Linux 网关通过 SocketCAN 和外部 `motors_py` 控制电机。SDK 必须匹配驱动、Python ABI 和目标平台，并安装到可导入的 Python 路径。仓库提供应用代码、配置和打包模板，SDK、共享库、固件及厂商驱动由使用者另行提供。
-
-```bash
-python -m pip install -e ".[build,desktop]" -c constraints-tested.txt
-python tools/build_factory_hmi.py all --motor-extension /path/to/motors_py.so
-python tools/build_factory_hmi_deb.py --version <release-version>
-```
-
-分发包含第三方二进制的安装包时，应遵循对应许可及源码提供要求。现场操作见 [部署指南](docs/FACTORY_DEPLOYMENT.md)，Windows 设备接入要求见 [Windows CAN-FD](docs/windows_zlg_canfd.md)。
-
-软件失能不能替代物理急停。网关保留租约超时、轨迹预检、反馈看门狗、使能失败回滚和标零前失能等保护。
-
-## 开发测试
-
-```bash
-PYTHONDONTWRITEBYTECODE=1 QT_QPA_PLATFORM=offscreen \
-  python -m pytest -q -p no:cacheprovider tests
-```
-
-测试覆盖控制状态机、CAN 策略与租约、客户端、报告和补传、桌面模型及打包模板。硬件相关检查见 [工位验收清单](docs/FACTORY_HMI_ACCEPTANCE.md)。
+软件修改和安装不启动现场PLC/CAN；实际工位按协议与设备配置操作。

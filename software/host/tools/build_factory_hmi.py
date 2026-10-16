@@ -16,14 +16,6 @@ MOTORS_ROOT = ROOT / "motors"
 MOTORS_BUILD_ROOT = MOTORS_ROOT / "build-factory-hmi"
 
 
-def external_motor_extension(value: str) -> Path:
-    """Accept one explicitly supplied Linux motor binding; never fetch it."""
-    path = Path(value).expanduser()
-    if not path.is_file() or path.suffix != ".so" or not path.name.startswith("motors_py"):
-        raise argparse.ArgumentTypeError("expected an existing motors_py*.so file")
-    return path.resolve(strict=True)
-
-
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -35,11 +27,6 @@ def parse_args() -> argparse.Namespace:
         "--skip-motors-build",
         action="store_true",
         help="reuse an existing motors_py shared library",
-    )
-    parser.add_argument(
-        "--motor-extension",
-        type=external_motor_extension,
-        help="use an externally built motors_py shared library instead of building SDK source",
     )
     return parser.parse_args()
 
@@ -53,6 +40,8 @@ def build_motors_py() -> Path:
             "-B",
             str(MOTORS_BUILD_ROOT),
             "-DCMAKE_BUILD_TYPE=Release",
+            "-DCMAKE_DISABLE_FIND_PACKAGE_ament_cmake=ON",
+            f"-DPython3_EXECUTABLE={sys.executable}",
             "-DCCACHE_PROGRAM=CCACHE_PROGRAM-NOTFOUND",
             (
                 "-DCMAKE_CXX_COMPILER_LAUNCHER="
@@ -70,6 +59,7 @@ def build_motors_py() -> Path:
             "--target",
             "motors_py",
             "--parallel",
+            os.environ.get("RP1_BUILD_JOBS", "2"),
         ],
         cwd=ROOT,
         check=True,
@@ -93,6 +83,10 @@ def build(target: str, *, one_dir: bool, motors_py: Path | None) -> None:
     if target == "desktop" and importlib.util.find_spec("PySide6") is None:
         raise SystemExit(
             'PySide6 is missing; run: python -m pip install -e ".[build,desktop]"'
+        )
+    if target == "gateway" and importlib.util.find_spec("pymodbus") is None:
+        raise SystemExit(
+            'pymodbus is missing; run: python -m pip install "pymodbus==3.8.6"'
         )
 
     entry = (
@@ -169,6 +163,12 @@ def build(target: str, *, one_dir: bool, motors_py: Path | None) -> None:
     elif target == "gateway":
         command.extend(
             [
+                "--collect-all",
+                "pymodbus",
+                "--hidden-import",
+                "factory_hmi.sync.uploader",
+                "--hidden-import",
+                "factory_hmi.sync.reliability_platform",
                 "--hidden-import",
                 "uvicorn.logging",
                 "--hidden-import",
@@ -189,13 +189,9 @@ def main() -> int:
         None
         if args.target in {"can-helper", "uploader"}
         else (
-            args.motor_extension.expanduser().resolve(strict=True)
-            if args.motor_extension is not None
-            else (
-                find_motors_py()
-                if args.skip_motors_build
-                else build_motors_py()
-            )
+            find_motors_py()
+            if args.skip_motors_build
+            else build_motors_py()
         )
     )
     targets = (
@@ -204,7 +200,7 @@ def main() -> int:
         else (args.target,)
     )
     for target in targets:
-        build(target, one_dir=bool(args.one_dir), motors_py=motors_py)
+        build(target, one_dir=bool(args.one_dir) and target != "can-helper", motors_py=motors_py)
     return 0
 
 

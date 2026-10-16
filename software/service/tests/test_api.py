@@ -72,17 +72,6 @@ def test_p0_read_model_paths_are_in_openapi_contract():
         "/api/v1/assets/{identifier}/events",
         "/api/v1/mtbf/conclusions",
         "/api/v1/data-sources/health",
-        "/api/v1/ingestion/executions",
-        "/api/v1/ingestion/executions/{execution_id}/heartbeat",
-        "/api/v1/ingestion/executions/{execution_id}/events",
-        "/api/v1/ingestion/executions/{execution_id}/telemetry",
-        "/api/v1/ingestion/executions/{execution_id}/artifacts",
-        "/api/v1/ingestion/executions/{execution_id}/finish",
-        "/api/v1/ingestion/executions/by-producer/{producer_execution_key}/heartbeat",
-        "/api/v1/ingestion/executions/by-producer/{producer_execution_key}/events",
-        "/api/v1/ingestion/executions/by-producer/{producer_execution_key}/telemetry",
-        "/api/v1/ingestion/executions/by-producer/{producer_execution_key}/artifacts",
-        "/api/v1/ingestion/executions/by-producer/{producer_execution_key}/finish",
         "/api/v1/admin/service-principals",
         "/api/v1/admin/service-principals/{service_id}/rotate",
         "/api/v1/admin/service-principals/{service_id}/revoke",
@@ -111,35 +100,9 @@ def test_p0_read_model_paths_are_in_openapi_contract():
     } <= set(schemas["ExecutionJointAnalysis"]["required"])
 
 
-def test_ingestion_contract_requires_bearer_idempotency_and_bounded_batches():
-    contract = client.get("/openapi.json").json()
-    operation = contract["paths"][
-        "/api/v1/ingestion/executions/{execution_id}/telemetry"
-    ]["post"]
-    assert operation["security"] == [{"ServiceBearer": []}]
-    parameters = {item["name"]: item for item in operation["parameters"]}
-    assert parameters["Idempotency-Key"]["required"] is True
-    schemas = contract["components"]["schemas"]
-    assert schemas["TelemetryBatchRequest"]["properties"]["series"]["maxItems"] == 20
-    assert schemas["TelemetrySeries"]["properties"]["points"]["maxItems"] == 5000
-    assert schemas["TelemetrySeries"]["properties"]["sampling_interval_ms"][
-        "minimum"
-    ] == 10
-    producer_operation = contract["paths"][
-        "/api/v1/ingestion/executions/by-producer/"
-        "{producer_execution_key}/telemetry"
-    ]["post"]
-    assert producer_operation["security"] == [{"ServiceBearer": []}]
-    producer_parameters = {
-        item["name"]: item for item in producer_operation["parameters"]
-    }
-    producer_key = producer_parameters["producer_execution_key"]["schema"]
-    assert producer_key["minLength"] == 1
-    assert producer_key["maxLength"] == 200
-    assert producer_key["pattern"] == (
-        "^[A-Za-z0-9][A-Za-z0-9._:@+-]{0,199}$"
-    )
-    assert producer_parameters["Idempotency-Key"]["required"] is True
+def test_direct_ingestion_routes_are_not_registered():
+    paths = client.get("/openapi.json").json()["paths"]
+    assert not any(path.startswith("/api/v1/ingestion/") for path in paths)
 
 
 def test_joint_analysis_publishes_bounded_filter_parameters():

@@ -23,7 +23,12 @@ from app.schemas.ingestion import (
 from app.services.ingestion import IngestionService
 
 
-router = APIRouter(prefix="/api/v1/ingestion", tags=["ingestion"])
+def approval_required():
+    from app.core.errors import ApiError
+    raise ApiError(410, "test_data_approval_required", "此旧采集接口已停用。请登录并核实测试信息，通过专用归档接口上传原始 CSV，完成归类和送审后才可进入正式统计。")
+
+
+router = APIRouter(prefix="/api/v1/ingestion", tags=["ingestion"], dependencies=[Depends(approval_required)])
 IdempotencyKey = Annotated[
     str,
     Header(alias="Idempotency-Key", min_length=8, max_length=200),

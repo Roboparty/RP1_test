@@ -1,106 +1,75 @@
-# 测试软件与部署
+# RP1 测试大屏与 PLC 上位机
 
-提供 RP1 Factory HMI 桌面上位机、测试执行工具、可靠性数据 API 和监控服务。设备控制在机器人旁的本机网关执行；数据通过 Service 进入 PostgreSQL 和 InfluxDB，由 Grafana 展示。
+完整 React 大屏、FastAPI 可靠性平台、PostgreSQL、MTBF/归档 Worker 和 PySide6 PLC/CAN 上位机。平台协议为 `reliability_v1`。
 
-## 快速开始
+仓库软件版本 **0.2.0**；平台组件 **2.0.6**，HMI源码包 **2.0.9+ubuntu24.04**。来源和文件清单见 [SOURCE-MANIFEST.json](SOURCE-MANIFEST.json)，功能见 [更新说明](docs/RELEASE-v0.2.0.md)。
 
-需要 Docker Engine、Docker Compose 和 Python 3。以下命令在 `software/` 下运行：
+## 启动平台
+
+目标为 Ubuntu 24.04 amd64，准备 Docker Engine、Compose、Python 3 和 OpenSSL。以下命令在 `software/` 下运行：
 
 ```bash
-sh scripts/start.sh
-sh scripts/run-demo.sh
-python3 scripts/verify_stack.py --demo
+python3 scripts/configure.py
+# 局域网可改用：python3 scripts/configure.py --hostname SERVER_IP_OR_DNS --bind 0.0.0.0
+bash scripts/up.sh
 ```
 
-首次启动生成私有 `.env`，完成数据库迁移、InfluxDB 初始化和面板导入。`demo-client` 生成双关节合成记录，经 API 上传，再由 Worker 导出至 InfluxDB。
+脚本生成新站点密码、`.env`、CA和HTTPS证书，拒绝覆盖已有安装。在浏览器/HMI机器信任 `deployment/secrets/root-ca.crt`，通过配置的地址访问（默认 `https://localhost:8443`）。初始账号位于本机 `deployment/secrets/initial-admin.txt`，首次登录须改密。
 
-桌面上位机见 [RP1 Factory HMI](host/README.md)，桌面客户端与本机控制网关分别启动。上述命令启动数据服务并运行 `demo-client` 合成示例。
+便捷启动为 `bash scripts/start.sh`；管理服务使用 `scripts/compose.sh`，停止用 `bash scripts/stop.sh`。
 
-| 入口 | 默认地址 |
+## 软件入口
+
+| 模块 | 内容 |
 |---|---|
-| Service 文档 | <http://127.0.0.1:18080/docs> |
-| Service 就绪检查 | <http://127.0.0.1:18080/readyz> |
-| Grafana | <http://127.0.0.1:13000/d/rp1-joint-telemetry> |
-| InfluxDB | <http://127.0.0.1:18086> |
-| PostgreSQL | `127.0.0.1:15432` |
+| [frontend](frontend/README.md) | 总控、样品/计划、时长/MTBF、工位、审批与曲线 |
+| [service](service/README.md) | 账号、上下文、心跳、归档、历史CSV导入与查询 |
+| [database](database/README.md) | 当前迁移链、角色、目录与统计规则 |
+| [host](host/README.md) | PLC/CAN控制、窗口、监控、记录、核实与同步 |
+| [test-runner](test-runner/README.md) | 独立轨迹工具 |
+| [离线分析](../data-analysis/README.md) | 独立记录分析与合成样例 |
+| [遥测演示](examples/telemetry-demo/README.md) | 独立 ingestion/InfluxDB/Grafana 合成栈 |
 
-登录账号与本地生成的密码见 `.env`。端口可在该文件调整。演示记录和 SQLite 补传队列保存在 `.runtime/`。
+网页历史CSV导入入口为 `?view=csv-import`，包含文件识别、上下文确认、核实和专用归档。
 
-```bash
-sh scripts/stop.sh  # 停止服务，保留数据库与遥测卷
-```
-
-Compose 项目名为 `rp1-test`，使用独立端口和卷。重新运行 `run-demo.sh` 会更新演示采集凭据并创建一次新运行。
-
-## 目录与阅读顺序
-
-| 模块 | 功能 | 代码入口 |
-|---|---|---|
-| [host](host/README.md) | RP1 Factory HMI：桌面、控制网关、CAN、监控/标零、回放、报告与上传 | `factory_hmi/desktop/` → `gateway/` → `core/` → `sync/` |
-| [test-runner](test-runner/README.md) | 轨迹生成/校验、dry-run、仿真及硬件回放、保护门控 | `cli.py` → `commands/` → `hardware.py`、`artifacts.py` |
-| [service](service/README.md) | FastAPI、采集协议、身份权限、业务查询、汇总与导出 Worker | `app/main.py` → `api/routes/` → `services/` → `repositories/` |
-| [database](database/README.md) | PostgreSQL 结构、有序迁移、用例导入、合成演示上下文 | `alembic/versions/`、`sql/`、`seeds/` |
-| [influxdb](influxdb/README.md) | HTTP 初始化、字段合同、写入/查询与合成样例 | `schema/telemetry.md`、`scripts/` |
-| [grafana](grafana/README.md) | 数据源、面板 JSON、provisioning 与校验 | `dashboards/joint-telemetry.json`、`provisioning/` |
-| [demo-client](demo-client/README.md) | 合成采集与 ingestion 补传演示 | `src/rp1_demo/cli.py`、`demo.py`、`platform.py` |
-
-公共部署位于 `compose.yaml`；启动、演示和诊断命令集中在 `scripts/`。离线分析见 [data-analysis](../data-analysis/README.md)。
-
-## 数据怎样流动
-
-```mermaid
-flowchart LR
-    R[机器人或台架] <--> C[Factory HMI 本机控制网关]
-    H[Factory HMI 桌面] <--> C
-    T[test-runner 轨迹工具] --> H
-    C --> F[本地记录 / 执行包]
-    F --> L[工站上传服务 / 提交与审批平台]
-    F --> O[独立可靠性平台适配器 / Outbox]
-    O --> S[Service / ingestion API]
-    D[demo-client 合成工具] --> S
-    S --> P[(PostgreSQL 事实与导出队列)]
-    P --> W[Influx 导出 Worker]
-    W --> I[(InfluxDB)]
-    I --> G[Grafana 遥测面板]
-    S --> B[业务查询 / 大屏接口]
-```
-
-PostgreSQL 保存用例、配置、执行、事件和降采样遥测。API 在同一事务内保存遥测与 Influx 导出任务；Worker 写入成功后确认任务，失败后保留并退避重试。InfluxDB 用于过程曲线，原始采样以本地运行记录为准。
-
-Grafana 提供温度、指令/反馈、跟踪误差、速度、力矩及数据来源显示。Service 提供业务查询接口，可用于自定义大屏。
-
-Factory HMI 支持工站登录、提交审批和分块上传协议；本仓库的 Service 提供可靠性 `ingestion` 协议。[执行包桥接](host/docs/RELIABILITY_BRIDGE.md)用于接入可靠性数据。HMI 的可选直接实时写入使用 InfluxDB 3 API；Compose 通过 Worker 写 InfluxDB 2.9，配置时须选择对应协议。
-
-## 共同约定
-
-| 信息 | 约定 |
-|---|---|
-| 运行身份 | 本地 `run_id` 对应稳定 producer key；API 返回平台 `execution_id`，Influx `run_id` 使用该 UUID |
-| 单位 | 本地 rad、rad/s；采集端显式转换为平台及面板的 deg、deg/s |
-| 时间 | UTC 起止与相对时间同时保留；`precision=ns` 是写入格式，平台时间精度仍为原始微秒 |
-| 有效运行 | 使用确认的任务区间；暂停和非计划停机分别记录，不能按 CSV 末时间自动认定 |
-| 缺失值 | 不将 NaN、空值转换为 0；未采集的电流、电压、IMU 或振动不补造 |
-| 数据来源 | `synthetic` 与 `real` 显式区分；程序完成不自动等于用例通过 |
-| 原始附件 | API 登记路径和校验信息，原始文件保存在采集端 |
-
-RP1 Factory HMI 使用 PySide6 桌面与本机控制网关，负责 CAN、电机保护和轨迹回放；`test-runner` 提供独立轨迹与执行工具。真机 `motors_py`、台架驱动和验收判据按实际设备接入。环境箱、振动台、跌落和人工检查等步骤需要对应设备与人员执行。
-
-## 开发与诊断
+## HMI源码运行与构建
 
 ```bash
-# 本地部署与最新演示的实际 Influx/Grafana 查询
-python3 scripts/verify_stack.py --demo
-
-# 后端单测；挂载数据库合同用于跨模块检查
-docker compose run --rm --no-deps -v "$PWD/database:/database:ro" api python -m pytest -q
-
-# 数据库导入逻辑与实际结构
-docker compose run --rm --no-deps migrate python -m unittest discover -s tests
-docker compose run --rm migrate python scripts/verify_schema.py
-
-# 面板与字段合同（不需要启动服务）
-python3 grafana/scripts/validate_dashboard.py
-python3 -m unittest discover -s influxdb/tests
+python3 -m venv .venv-hmi
+.venv-hmi/bin/python -m pip install -r host/requirements.lock
+.venv-hmi/bin/python host/launch.py --offline-check
 ```
 
-测试工具与上位机的安装和单测命令见各自 README。诊断脚本默认等待异步导出最多 30 秒。
+`--offline-check` 使用专用mock PLC，禁用CAN和平台连接。真实工位参数、本站CA和账号按 [HMI说明](host/README.md) 配置。
+
+Ubuntu 24.04安装包构建：
+
+```bash
+sudo bash scripts/install-build-deps-ubuntu24.sh
+bash scripts/build-hmi.sh
+```
+
+产物位于 `host/dist/`，安装包与SHA256通过Releases分发；源码仓库保留构建工具和SDK源码。
+
+## 数据与维护
+
+工位先保存CSV/报告，核实并显式提交后中央归档，工位保留副本。PostgreSQL保存身份、索引、核实/归类/审批；文件由API和归档Worker共享持久卷。审批与在线状态独立，批准不自动形成合格MTBF暴露。
+
+首次安装使用新项目和新卷。旧遥测演示数据库在0023之后使用另一迁移链，由独立示例管理。已有同架构平台升级先备份并在隔离恢复副本验证。详见 [运维](docs/OPERATIONS.md)。
+
+```bash
+python3 scripts/verify.py
+python3 scripts/backup.py --maintenance
+```
+
+## 开发验证
+
+```bash
+(cd frontend && npm ci && npm run check)
+PYTHONPATH=service python3 -m pytest -c service/pytest.ini service/tests -m 'not integration' -q
+(cd host && QT_QPA_PLATFORM=offscreen python3 -m pytest tests -q)
+python3 scripts/test-archive-deployment-guards.py
+python3 scripts/check-release.py
+```
+
+隔离数据库验证：构建 `deployment/ArchiveQa.Dockerfile` 后执行 `python3 scripts/test-archives.py`。完整HTTPS部署及联合恢复入口为 `python3 scripts/test-archive-deployment.py`，使用新临时项目和合成样例。

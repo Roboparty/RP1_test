@@ -28,7 +28,7 @@ from .can_manager import (
 )
 from .config import load_station_config
 from .controller import FactoryController
-from .identity import build_execution_code
+from .identity import build_execution_code, build_local_execution_code
 from .report import ReportManager, ReportResult
 from .zeroing import MotorZeroingSession
 from factory_hmi.sync.outbox import Outbox
@@ -71,6 +71,9 @@ class FactoryService:
         self._fake_can_connected = False
         self._report_threads: set[threading.Thread] = set()
         self._report_errors: dict[str, str] = {}
+        self._record_identity: dict[str, str] = {}
+        self._record_sidecar: Path | None = None
+        self._live_report_context: dict[str, Any] | None = None
         recovery = threading.Thread(
             target=self._recover_existing_records,
             name="factory-report-recovery",
@@ -514,32 +517,87 @@ class FactoryService:
         cycles: int = 0,
         duration_hours: float | None = None,
         record: bool = True,
+        recording_scope: str | None = None,
         record_rate_hz: float = 20.0,
         test_id: str | None = None,
         robot_id: str | None = None,
         execution_uuid: str | None = None,
         campaign_id: str | None = None,
+        cycle_id: str | None = None,
+        segment_id: str | None = None,
+        asset_id: str | None = None,
+        configuration_id: str | None = None,
+        test_case_version_id: str | None = None,
         test_case_id: str | None = None,
         test_case_version: str | None = None,
+        test_name: str | None = None,
         bench_id: str | None = None,
         station_id: str | None = None,
         operator_id: str | None = None,
+        stage_code: str | None = None,
+        stage_name: str | None = None,
+        subject_map: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
         controller = self.controller
         report_context: dict[str, Any] | None = None
         record_path: Path | None = None
+        sidecar: Path | None = None
         effective_test_id = test_id
+        execution_code = ""
+        selected_case = str(test_case_id or "").strip().upper()
+        if not selected_case:
+            raise ValueError("测试用例编号必填，没有对应用例请选择 OTHER 并填写测试名称")
+        if selected_case == "OTHER":
+            if not str(test_name or "").strip():
+                raise ValueError("其他用例必须填写临时测试名称")
+            if not str(robot_id or "").strip() or not str(bench_id or "").strip():
+                raise ValueError("其他用例必须填写实际测试对象和工位")
         if record:
             started_at = datetime.now(timezone.utc)
             resolved_test_case = test_case_id or controller.config.limb
             resolved_sample = robot_id or ""
             resolved_bench = bench_id or os.environ.get("RP1_FACTORY_BENCH_ID", "")
-            canonical_test_id = build_execution_code(
-                resolved_test_case,
-                started_at,
-                resolved_sample,
-                resolved_bench,
-            )
+            platform_context = {
+                "campaign_id": campaign_id, "cycle_id": cycle_id,
+                "segment_id": segment_id, "asset_id": asset_id,
+                "configuration_id": configuration_id,
+                "test_case_version_id": test_case_version_id,
+            }
+            has_platform_context = any(platform_context.values())
+            scope = recording_scope or ("platform" if has_platform_context else "local")
+            if scope not in {"local", "platform"}:
+                raise ValueError("recording_scope must be local or platform")
+            if scope == "local" and has_platform_context:
+                raise ValueError("本地记录不能同时携带平台测试上下文；请明确选择记录用途。")
+            execution_id = str(execution_uuid or uuid.uuid4())
+            uuid.UUID(execution_id)
+            if scope == "local":
+                canonical_test_id = build_local_execution_code(
+                    resolved_test_case, started_at, execution_id
+                )
+            else:
+                resolved_test_case = str(test_case_id or "").strip().upper()
+                resolved_sample = resolved_sample.strip().upper()
+                resolved_bench = resolved_bench.strip().upper()
+                platform_context["station_id"] = station_id or os.environ.get("RP1_FACTORY_STATION_ID", "")
+                missing = [key for key, value in platform_context.items() if not value]
+                if missing:
+                    raise ValueError("平台记录上下文不完整，缺少：" + "、".join(missing))
+                for key, value in platform_context.items():
+                    try:
+                        uuid.UUID(str(value))
+                    except ValueError as exc:
+                        raise ValueError(f"平台记录 {key} 必须是真实上下文的 UUID，不能使用显示编号。") from exc
+                try:
+                    build_execution_code(
+                        resolved_test_case, started_at, resolved_sample, resolved_bench
+                    )
+                except ValueError as exc:
+                    raise ValueError(f"平台记录编号不符合要求：{exc}。仅本地保存请取消选择平台档案。") from exc
+                canonical_test_id = build_local_execution_code(
+                    resolved_test_case, started_at, execution_id
+                )
+                execution_code = ""
             if test_id and test_id != canonical_test_id:
                 raise ValueError(
                     "test_id does not match the canonical execution identity"
@@ -548,34 +606,37 @@ class FactoryService:
             effective_test_id = safe_test_id
             if not safe_test_id:
                 raise ValueError("test_id does not contain a usable filename")
-            controller.enable_recording = True
             record_path = self.record_root / f"{safe_test_id}.csv"
+            if record_path.exists() or record_path.with_suffix(".context.json").exists():
+                raise ValueError("记录编号已存在，不能覆盖之前的记录。")
+            controller.enable_recording = True
             controller.record_output = record_path
             trajectory = controller.trajectory
-            execution_id = str(execution_uuid or uuid.uuid4())
-            uuid.UUID(execution_id)
             now = started_at.isoformat().replace("+00:00", "Z")
-            recording_backend = self._backend_name or "unknown"
-            source_kind = "real" if recording_backend == "motors_py" else "synthetic"
-            report_config = {
-                **controller.config.raw,
-                "backend": recording_backend,
-                "source_kind": source_kind,
-            }
             report_context = {
                 "execution_uuid": execution_id,
                 "test_id": safe_test_id,
+                "execution_code": execution_code,
+                "recording_scope": scope,
                 "campaign_id": campaign_id,
+                "cycle_id": cycle_id,
+                "segment_id": segment_id,
+                "asset_id": asset_id,
+                "configuration_id": configuration_id,
+                "test_case_version_id": test_case_version_id,
                 "test_case_id": resolved_test_case,
                 "test_case_version": test_case_version or "",
+                "test_name": str(test_name or resolved_test_case).strip(),
+                "actual_object": resolved_sample,
                 "sample_id": resolved_sample,
                 "robot_id": resolved_sample,
                 "bench_id": resolved_bench,
                 "station_id": station_id
                 or os.environ.get("RP1_FACTORY_STATION_ID", ""),
                 "operator_id": operator_id or "",
-                "backend": recording_backend,
-                "source_kind": source_kind,
+                "stage_code": stage_code or "AGING",
+                "stage_name": stage_name or "老化运行",
+                "subject_map": dict(subject_map or {}),
                 "started_at": now,
                 "record_rate_hz": float(record_rate_hz),
                 "module_name": controller.config.limb,
@@ -595,7 +656,7 @@ class FactoryService:
                         "RP1_FACTORY_HMI_VERSION", "0.1.0"
                     )
                 },
-                "config": report_config,
+                "config": controller.config.raw,
                 "acceptance": controller.config.raw.get(
                     "factory_hmi_acceptance", {}
                 ),
@@ -615,6 +676,21 @@ class FactoryService:
         else:
             controller.enable_recording = False
             controller.record_output = None
+        self._record_identity = {
+            "test_id": effective_test_id or "",
+            "execution_uuid": str((report_context or {}).get("execution_uuid") or ""),
+            "execution_code": execution_code,
+            "recording_scope": report_context.get("recording_scope", "") if report_context else "",
+            "campaign_id": str((report_context or {}).get("campaign_id") or ""),
+            "cycle_id": str((report_context or {}).get("cycle_id") or ""),
+            "asset_id": str((report_context or {}).get("asset_id") or ""),
+            "configuration_id": str((report_context or {}).get("configuration_id") or ""),
+            "test_case_version_id": str((report_context or {}).get("test_case_version_id") or ""),
+            "test_case_id": str((report_context or {}).get("test_case_id") or ""),
+            "station_id": str((report_context or {}).get("station_id") or ""),
+        }
+        self._record_sidecar = sidecar if record else None
+        self._live_report_context = report_context
         controller.start(
             loop=loop,
             cycles=cycles,
@@ -702,12 +778,21 @@ class FactoryService:
                     "sync_error": queued.last_error if queued else "",
                     "review_reason": queued.review_reason if queued else "",
                     "submission_id": queued.submission_id if queued else "",
+                    "execution_code": (
+                        queued.execution_code if queued and queued.execution_code
+                        else item.get("execution_code", "")
+                    ),
+                    "execution_code_confirmed": bool(queued and queued.execution_code),
                 }
             )
         return items
 
     def execution_summary(self, test_id: str) -> dict[str, Any]:
-        return self.report_manager.summary(test_id)
+        summary = self.report_manager.summary(test_id)
+        queued = self.outbox.get_by_test_id(test_id)
+        if queued and isinstance(queued.manifest.get("central_analysis"), Mapping):
+            summary["central_analysis"] = dict(queued.manifest["central_analysis"])
+        return summary
 
     def execution_report_file(self, test_id: str) -> Path:
         return self.report_manager.report_path(test_id)
@@ -719,18 +804,120 @@ class FactoryService:
         result = self.report_manager.rebuild(test_id)
         return self._report_result(result)
 
-    def submit_execution(self, test_id: str) -> dict[str, Any]:
+    def submit_execution(
+        self,
+        test_id: str,
+        reason: str = "",
+        verified_status: str = "",
+        operator_summary: str = "",
+        review: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        queued = self.outbox.get_by_test_id(test_id)
+        if queued and queued.state in {"approved", "uploaded", "pending_review", "archived", "awaiting_classification", "processing_failed"}:
+            return queued.to_dict()
+        if not review:
+            raise ValueError("必须核实测试人、有效工位、人工结论和测试员记录后才能提交")
+        if queued and queued.submission_payload and queued.state not in {"rejected", "needs_verification"}:
+            raise ValueError("已有上传或送审请求等待确认，请先重试归档恢复回执后再修改核实信息")
+        central_analysis = queued.manifest.get("central_analysis") if queued else None
+        review_path = self.report_manager.write_operator_review(test_id, review, central_analysis=central_analysis)
+        verified = json.loads(review_path.read_text(encoding="utf-8"))
+        manifest = dict(self.report_manager.manifest(test_id))
+        raw_path = self.report_manager.execution_dir(test_id) / "telemetry/raw.csv"
+        expected = next((entry for entry in manifest.get("files", []) if entry.get("path") == "telemetry/raw.csv"), None)
+        import hashlib
+        digest = hashlib.sha256()
+        with raw_path.open("rb") as handle:
+            while chunk := handle.read(1024 * 1024):
+                digest.update(chunk)
+        if not expected or expected["sha256"] != digest.hexdigest() or expected["size_bytes"] != raw_path.stat().st_size:
+            raise ValueError("原始采集文件与已冻结证据不一致，不能提交")
+        actual_object = verified.get("actual_object") or manifest.get("actual_object") or manifest.get("sample_id")
+        test_name = verified.get("test_name") or manifest.get("test_name")
+        if not actual_object or actual_object == "unknown" or not test_name:
+            raise ValueError("请补齐测试名称和实际测试对象")
+        manifest.update(archive_protocol="reliability_v1_csv", csv_path=str(raw_path),
+            operator_review=verified, test_name=test_name, actual_object=actual_object,
+            submission_reason=str(reason or verified["submission_reason"]).strip()[:300])
+        if central_analysis:
+            manifest["central_analysis"] = central_analysis
         item = self.outbox.enqueue(
-            self.report_manager.manifest(test_id),
+            manifest,
             self.report_manager.bundle_path(test_id),
         )
+        if queued and queued.submission_payload:
+            frozen = json.loads(queued.submission_payload)
+            if "create" in frozen:
+                item = self.outbox.update(item.execution_uuid, submission_payload=json.dumps(
+                    {"create": frozen["create"], "review": verified}, ensure_ascii=False, sort_keys=True))
         return item.to_dict()
 
     def retry_submission(self, test_id: str) -> dict[str, Any]:
         item = self.outbox.get_by_test_id(test_id)
         if item is None:
-            return self.submit_execution(test_id)
+            raise ValueError("尚未核实提交，请先打开核实窗口")
+        if item.state in {"rejected", "needs_verification"}:
+            raise ValueError("驳回后必须重新核实并提交，不能直接重试旧结论")
         return self.outbox.retry(item.execution_uuid).to_dict()
+
+    def import_history(self, paths: Sequence[str], metadata: Mapping[str, Any]) -> list[dict[str, Any]]:
+        """Explicit local selection only; never uploads or starts hardware."""
+        from factory_hmi.core.report import _read_csv, _sha256
+        if not paths or len(paths) > 100:
+            raise ValueError("请选择 1 至 100 个历史 CSV")
+        results = []
+        for value in paths:
+            source = Path(value).expanduser()
+            if source.is_symlink() or source.suffix.lower() != ".csv":
+                raise ValueError("只能选择普通 CSV 文件")
+            source = source.resolve(strict=True)
+            digest = _sha256(source)
+            sidecar = source.with_suffix(".context.json")
+            context = json.loads(sidecar.read_text(encoding="utf-8")) if sidecar.is_file() else {}
+            if not isinstance(context, dict):
+                raise ValueError("历史上下文文件格式无效")
+            context.setdefault("actual_object", context.get("sample_id") or context.get("robot_id") or "")
+            context.setdefault("test_name", context.get("test_case_id") or "")
+            identity = str(context.get("execution_uuid") or uuid.uuid5(uuid.NAMESPACE_URL, "rp1-history-sha256:" + digest))
+            uuid.UUID(identity)
+            known = None
+            for item in self.report_manager.history(limit=10000):
+                existing_manifest = self.report_manager.manifest(item["test_id"])
+                same_file = any(entry.get("path") == "telemetry/raw.csv" and entry.get("sha256") == digest for entry in existing_manifest.get("files", []))
+                if item["execution_uuid"] == identity or same_file:
+                    known = item
+                    break
+            if known:
+                results.append({**known, "duplicate": True})
+                continue
+            for field in ("test_name", "actual_object", "bench_id", "operator_id"):
+                explicit = str(metadata.get(field) or context.get(field) or "").strip()
+                if not explicit:
+                    raise ValueError("历史补录必须填写测试名称、实际对象、工位和测试人")
+                context[field] = explicit
+            _, _, times, _ = _read_csv(source)
+            # Relative duration is measured from CSV; unknown absolute clocks stay
+            # explicitly MISSING on the wire (epoch is only a local report placeholder).
+            has_clock = bool(context.get("started_at") and context.get("ended_at"))
+            formal_keys = ("campaign_id", "cycle_id", "segment_id", "asset_id", "configuration_id", "test_case_version_id", "station_id")
+            formal_context = all(context.get(key) for key in formal_keys) and context.get("test_case_id") not in {None, "", "OTHER"}
+            if formal_context:
+                try:
+                    for key in formal_keys:
+                        uuid.UUID(str(context[key]))
+                except ValueError:
+                    formal_context = False
+            context.update(execution_uuid=identity, test_id="HISTORY_" + identity.replace("-", ""),
+                origin="HISTORY", recording_scope="platform" if formal_context else "local", test_case_id=context.get("test_case_id") or "OTHER",
+                sample_id=context["actual_object"], machine_status=context.get("machine_status") or "unknown",
+                timestamp_provenance="recorded" if has_clock else "missing",
+                started_at=context.get("started_at") or "1970-01-01T00:00:00Z",
+                ended_at=context.get("ended_at") or "1970-01-01T00:00:00Z",
+                active_seconds=context.get("active_seconds", max(times, default=0.0) - min(times, default=0.0)),
+                completed_cycles=context.get("completed_cycles", 0), outcome=context.get("outcome") or "interrupted")
+            result = self.report_manager.finalize(source, context)
+            results.append(self._report_result(result))
+        return results
 
     def sync_status(self, test_id: str) -> dict[str, Any]:
         item = self.outbox.get_by_test_id(test_id)
@@ -823,6 +1010,18 @@ class FactoryService:
 
     reset_to_default = reset
 
+    def reset_motor_fault(self) -> dict[str, Any]:
+        if not self.can_status()["all_up"]:
+            raise RuntimeError("connect and validate CAN before resetting motor faults")
+        self.controller.reset_motor_fault()
+        return self.snapshot()
+
+    def request_motion_stop(self) -> bool:
+        # Do not take the controller's command lock: reset holds it while
+        # returning. Signalling is cancellation-only and does not touch CAN.
+        controller = self._controller
+        return bool(controller and controller.request_motion_stop())
+
     def disable(self) -> dict[str, Any]:
         controller = self.controller
         if controller.state in {StationState.RUNNING, StationState.PAUSED}:
@@ -882,6 +1081,26 @@ class FactoryService:
         zeroing.abort()
         return zeroing.snapshot()
 
+    def adopt_platform_execution_code(self, execution_code: str) -> dict[str, str]:
+        code = str(execution_code or "").strip()
+        if "_E" not in code:
+            raise ValueError("平台执行编号必须包含数据库分配的 _E 后缀")
+        with self._lock:
+            if not self._record_identity.get("test_id"):
+                raise RuntimeError("没有正在记录的平台测试")
+            self._record_identity["execution_code"] = code
+            if self._live_report_context is not None:
+                self._live_report_context["execution_code"] = code
+            sidecar = self._record_sidecar
+        if sidecar is not None and sidecar.is_file():
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+            payload["execution_code"] = code
+            sidecar.write_text(
+                json.dumps(payload, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        return {"execution_code": code}
+
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
             if self._controller is None:
@@ -904,6 +1123,22 @@ class FactoryService:
                     "diagnostics": [],
                 }
             snapshot = self._controller.snapshot()
+            playback = snapshot.get("playback")
+            identity = dict(self._record_identity)
+            if isinstance(playback, dict) and playback.get("test_id") == identity.get("test_id"):
+                playback["execution_code"] = identity.get("execution_code", "")
+                playback["execution_uuid"] = identity.get("execution_uuid", "")
+            snapshot["platform"] = {
+                key: identity.get(key, "")
+                for key in (
+                    "campaign_id", "cycle_id", "asset_id", "configuration_id",
+                    "test_case_version_id", "test_case_id", "station_id", "execution_code",
+                )
+            }
+            snapshot["platform"]["execution_uuid"] = (
+                identity.get("execution_uuid", "") if isinstance(playback, dict)
+                and playback.get("test_id") and playback.get("test_id") == identity.get("test_id") else ""
+            )
             configured_motors = [
                 {
                     "index": int(entry.index),

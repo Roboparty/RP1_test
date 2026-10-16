@@ -10,7 +10,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from alembic import op
-from imports.sql_migrations import read_sql
 
 from imports.test_case_csv import import_test_cases
 
@@ -22,11 +21,11 @@ depends_on = None
 
 DATABASE_ROOT = Path(__file__).resolve().parents[2]
 SQL_ROOT = DATABASE_ROOT / "sql"
-CSV_PATH = DATABASE_ROOT / "imports" / "test_cases_catalog.csv"
+CSV_PATH = DATABASE_ROOT / "imports" / "test_cases_202609181013.csv"
 
 
 def upgrade() -> None:
-    sql = read_sql("012_test_target_parts.sql")
+    sql = (SQL_ROOT / "012_test_target_parts.sql").read_text(encoding="utf-8")
     connection = op.get_bind()
     connection.exec_driver_sql(sql.replace("%", "%%"))
     import_test_cases(connection, CSV_PATH)

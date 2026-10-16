@@ -7,12 +7,12 @@ name = "rp1-factory-hmi"
 version = "0.1.0"
 description = "RP1 production aging-test control gateway and desktop HMI"
 readme = "README.md"
-license = { file = "LICENSE" }
 requires-python = ">=3.10"
 dependencies = [
   "fastapi",
   "numpy",
   "pydantic",
+  "pymodbus==3.8.6",
   "pyroute2",
   "PyYAML",
   "uvicorn[standard]",
@@ -21,7 +21,7 @@ dependencies = [
 [project.optional-dependencies]
 desktop = ["PySide6"]
 build = ["PyInstaller"]
-test = ["httpx2", "pytest", "jsonschema"]
+test = ["httpx", "pytest", "jsonschema"]
 
 [project.scripts]
 rp1-factory-gateway = "factory_hmi.gateway.__main__:main"

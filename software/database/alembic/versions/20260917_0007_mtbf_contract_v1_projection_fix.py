@@ -2,20 +2,40 @@
 
 Revision ID: 20260917_0007
 Revises: 20260917_0006
-Create Date: 2026-09-17"""
+Create Date: 2026-09-17
+"""
+
 from __future__ import annotations
 
+import os
+import re
+from pathlib import Path
+
 from alembic import op
-from imports.sql_migrations import read_sql
+
 
 revision = "20260917_0007"
 down_revision = "20260917_0006"
 branch_labels = None
 depends_on = None
 
+SQL_ROOT = Path(__file__).resolve().parents[2] / "sql"
+ROLE_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def _role(name: str, default: str) -> str:
+    value = os.environ.get(name, default)
+    if not ROLE_PATTERN.fullmatch(value):
+        raise RuntimeError(f"unsafe PostgreSQL role name in {name}")
+    return value
+
 
 def upgrade() -> None:
-    op.get_bind().exec_driver_sql(read_sql("007_mtbf_contract_v1_projection_fix.sql").replace("%", "%%"))
+    sql = (SQL_ROOT / "007_mtbf_contract_v1_projection_fix.sql").read_text(
+        encoding="utf-8"
+    )
+    sql = sql.replace("__RP1_APP_USER__", _role("RP1_APP_USER", "rp1_app"))
+    op.get_bind().exec_driver_sql(sql.replace("%", "%%"))
 
 
 def downgrade() -> None:

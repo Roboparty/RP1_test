@@ -46,13 +46,6 @@ class ExecutionRegisterRequest(ProducerRequest):
     stage_name: str = Field(min_length=1, max_length=255)
     source_metadata: dict[str, Any] = Field(default_factory=dict)
 
-    @field_validator("source_metadata")
-    @classmethod
-    def validate_source_kind(cls, value: dict[str, Any]) -> dict[str, Any]:
-        if value.get("source_kind", "real") not in {"real", "synthetic"}:
-            raise ValueError("source_metadata.source_kind must be real or synthetic")
-        return value
-
 
 class ExecutionRegistration(BaseModel):
     execution_id: UUID
@@ -94,7 +87,7 @@ class EventBatchRequest(ProducerRequest):
 class TelemetryPoint(BaseModel):
     sample_index: int = Field(ge=0)
     observed_at: datetime
-    value: float = Field(allow_inf_nan=False)
+    value: float
     quality_status: QualityStatus = "VALID"
 
 

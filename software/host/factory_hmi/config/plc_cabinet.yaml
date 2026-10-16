@@ -1,0 +1,165 @@
+# PLC cabinet communication configuration.
+#
+# The Linux<->PLC Modbus TCP V1.2 window is defined by
+# HOST_MODBUS_TCP_PROTOCOL_V1.2.md; V1.0/V1.1 are monitor-only.
+# Control requires the paired PLC V1.5 / Host Protocol V1.2 source.
+# The S7 direct mapping and three logical
+# feedback fields explicitly called out below remain TODO. This workstation
+# profile uses the confirmed real PLC. Use launch.py --offline-check for tests.
+
+driver: modbus_tcp  # mock | s7 | modbus_tcp
+access_mode: control  # control | monitor; monitor never writes PLC commands
+
+timings:
+  heartbeat_ms: 500
+  poll_ms: 200
+  stale_timeout_ms: 1000
+  command_timeout_ms: 5000
+  km0_timeout_ms: 5000
+  ps1_timeout_ms: 5000
+  reconnect_ms: 2000
+  trend_retention_seconds: 300
+
+# Address-free operator limits frozen by HOST_MODBUS_TCP_PROTOCOL_V1.0.md.
+# Registers 36/37 accept 1..60000 mV/mA, so zero and values above 60.000 are
+# invalid even though an unsigned word could represent a larger number.
+setpoints:
+  enabled: true
+  voltage_min_v: 0.001
+  voltage_max_v: 60.0
+  current_min_a: 0.001
+  current_max_a: 60.0
+  step: 0.001
+
+# Fixed by the electrical design; these are Linux CAN device assignments, not
+# PLC addresses.
+dut_can_map:
+  DUT1: can0
+  DUT2: can1
+  DUT3: can2
+  DUT4: can3
+
+s7:
+  ip: null                 # TODO(PLC-FREEZE): S7-1200 G2 address
+  port: null               # TODO(PLC-FREEZE): transport port
+  rack: null               # TODO(PLC-FREEZE): rack
+  slot: null               # TODO(PLC-FREEZE): slot
+  timeout_ms: null         # TODO(PLC-FREEZE): protocol timeout
+  command_db: null         # TODO(PLC-FREEZE): command DB number
+  status_db: null          # TODO(PLC-FREEZE): status DB number
+  mapping:
+    MainEnable: null       # TODO(PLC-FREEZE): DB offset/type
+    ChannelEnable: null    # TODO(PLC-FREEZE): DB offset/type/array layout
+    PS1OutputEnable: null  # TODO(PLC-FREEZE): DB offset/type
+    AllStop: null          # TODO(PLC-FREEZE): DB offset/type
+    ResetFaultPulse: null  # TODO(PLC-FREEZE): DB offset/type
+    HeartbeatCounter: null # TODO(PLC-FREEZE): DB offset/type
+    CommandSequence: null  # TODO(PLC-FREEZE): DB offset/type
+    PLCReady: null
+    MainContactorFB: null
+    MainReady: null
+    PhysicalPermit: null
+    ChannelPermit: null
+    PS1Request: null
+    PS1ActualOutput: null
+    PS1CommOK: null
+    PS1Fault: null
+    FaultLatched: null
+    FaultCode: null
+    Voltage: null
+    Current: null
+    Power: null
+    AnalogValidMask: null
+    AcknowledgedSequence: null
+    StatusCounter: null
+
+modbus_tcp:
+  host: 192.168.137.10      # Protocol V1.2, isolated control VLAN only
+  port: 502
+  unit_id: 1
+  timeout_ms: 2000
+  retries: 1
+  mapping:
+    # All addresses are zero-based Modbus PDU addresses. Do not add 40001.
+    # Each word is unsigned 16-bit and transferred in Modbus big-endian order.
+    identity:
+      magic: 0x4C46
+      protocol_version: 0x0102
+      control_key: 0x835A
+    status:
+      start_address: 0
+      count: 32
+      registers:
+        magic: 0
+        protocol_version: 1
+        status_flags: 2
+        channel_flags: 3
+        fault_code: 4
+        ps1_mb_status: 5
+        ps1_device_status: 6
+        ps1_manager_state: 7
+        ps1_output_voltage: 8
+        ps1_output_current: 9
+        ps1_set_voltage: 10
+        ps1_set_current: 11
+        voltage_start: 12
+        current_start: 16
+        accepted_command_flags: 20
+        reset_ack_sequence: 21
+        reset_result: 22
+        fault_source_flags: 23
+        acknowledged_sequence: 24
+        heartbeat_echo: 25
+        host_server_status: 26
+        host_server_events: 27
+        ps1_feedback_flags: 28
+        ps1_status_sequence: 29
+        ps1_power_cycle: 30
+        ps1_status_age_ms: 31
+      bits:
+        plc_ready: 0
+        host_connected: 1
+        main_ready: 2
+        ps1_comm_ready: 3
+        ps1_output_actual: 4
+        fault_latched: 5
+        ps1_comm_fault: 6
+        ps1_device_fault: 7
+        setpoint_applied: 8
+        setpoint_rejected: 9
+        ps1_comm_busy: 10
+    command:
+      registers:
+        control_key: 32
+        heartbeat: 33
+        command_sequence: 34
+        command_flags: 35
+        set_voltage: 36
+        set_current: 37
+      bits:
+        main_enable: 0
+        channel_1_enable: 1
+        channel_2_enable: 2
+        channel_3_enable: 3
+        channel_4_enable: 4
+        ps1_output_enable: 5
+        all_stop: 6
+        reset_fault: 7
+        apply_setpoints: 8
+    scaling:
+      voltage_units_per_count: 0.001
+      current_units_per_count: 0.001
+      # VS1..VS4 measure 0..50 V with 0..10 V transducer outputs.
+      # HR12..15 remains 1 mV/count in V1.0, V1.1 and V1.2: 50000 = 50.000 V.
+      # PS1 voltage/output/setpoint also remains 1 mV/count.
+      max_channel_voltage: 50.0
+      max_channel_current: 50.0
+    compatibility:
+      # Protocol V1.0 exposes MainReady but not the independent I0.1/KM0 bit.
+      main_contactor_fb: null  # TODO(PLC-V1-GAP): add explicit feedback bit
+      # ChannelFlags are final relay/permit outputs, not raw I0.2-I0.5 states.
+      physical_permit: null    # TODO(PLC-V1-GAP): add four S1-S4 input bits
+      # Range validation is combined with V1.2 HR28 validity and HR29 progress;
+      # a fresh FC03 sample alone is never PS1 feedback confirmation.
+      analog_valid_policy: fresh_read_and_range
+      status_counter_source: local_poll  # TCP snapshot only; PS1 progress is HR29

@@ -2,11 +2,11 @@
 
 motor_id: [1, 2, 3, 4, 5]
 motor_interface_type: ["canfd"]
-motor_interface: ["can0"]
+motor_interface: ["can1"]
 motor_num: [5]
 motor_type: ["LRO"]
 motor_model: [2, 1, 1, 1, 1]
-motor_zero_offset: [-2.8894, -2.9931, -2.8798, 1.5966, -2.7881]
+motor_zero_offset: [0.0, 0.0, 0.0, 0.0, 0.0]
 kp: [60.0, 60.0, 40.0, 60.0, 40.0]
 kd: [3.0, 3.0, 2.0, 3.0, 2.0]
 motor_sign: [1, 1, 1, 1, 1]

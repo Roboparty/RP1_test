@@ -12,12 +12,16 @@ from fastapi.responses import JSONResponse
 from app.api.routes import (
     access,
     admin,
+    archives,
+    archive_imports,
     auth,
     dashboard,
     health,
-    ingestion,
+    hmi_presence,
     mtbf,
     read_models,
+    setup,
+    submissions,
 )
 from app.core.config import get_settings
 from app.core.db import SessionLocal
@@ -134,10 +138,14 @@ async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResp
 
 
 app.include_router(health.router)
+app.include_router(hmi_presence.router)
 app.include_router(auth.router)
 app.include_router(access.router)
 app.include_router(admin.router)
-app.include_router(ingestion.router)
 app.include_router(dashboard.router)
 app.include_router(read_models.router)
 app.include_router(mtbf.router)
+app.include_router(setup.router)
+app.include_router(submissions.router)
+app.include_router(archives.router)
+app.include_router(archive_imports.router)

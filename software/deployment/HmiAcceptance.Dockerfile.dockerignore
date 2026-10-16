@@ -1,0 +1,6 @@
+**
+!host/
+!host/dist/
+!host/dist/*.deb
+!deployment/
+!deployment/hmi-acceptance.sh

@@ -25,3 +25,5 @@ Keep the applicable license texts and attribution when redistributing material. 
 - [Creative Commons Attribution-ShareAlike 4.0 International](LICENSES/CC-BY-SA-4.0.txt) — [legal code](https://creativecommons.org/licenses/by-sa/4.0/legalcode.en)
 - [CC0 1.0 Universal](LICENSES/CC0-1.0.txt) — [legal code](https://creativecommons.org/publicdomain/zero/1.0/legalcode.en)
 - [MIT License](LICENSES/MIT.txt) — [standard template](https://choosealicense.com/licenses/mit/)
+
+Integrated platform/HMI sources retain their existing file-specific rights and notices. In particular, `software/host/motors/` retains its GPL-3.0 license. See [software provenance and notices](software/THIRD_PARTY_NOTICES.md); the root Apache license does not replace those notices.

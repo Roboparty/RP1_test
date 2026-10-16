@@ -1,10 +1,11 @@
 .env
 .env.*
-.venv
-venv
+!.env.example
+.venv*
+node_modules
+dist
+build
 __pycache__
-**/__pycache__
-*.pyc
 .pytest_cache
-*.dump
-*.backup
+*.tsbuildinfo
+*.log

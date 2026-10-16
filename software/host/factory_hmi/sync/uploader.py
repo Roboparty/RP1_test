@@ -67,6 +67,8 @@ class PlatformClient:
         body: bytes | None = None,
         headers: Mapping[str, str] | None = None,
     ) -> dict[str, Any]:
+        if path.startswith(("/api/submissions", "/api/uploads")):
+            raise PlatformError("旧执行包上传已停用；原始CSV必须保留本地，请使用reliability_v1摘要审批。", status=410)
         url = f"{self.base_url}/{path.lstrip('/')}"
         request_headers = {"Accept": "application/json"}
         if self.access_token:

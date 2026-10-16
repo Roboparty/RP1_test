@@ -8,7 +8,7 @@ from pathlib import Path
 from imports.test_case_csv import EXPECTED_COUNTS, EXPECTED_HEADERS, load_csv, validate_rows
 
 
-CSV_PATH = Path(__file__).resolve().parents[1] / "imports" / "test_cases_catalog.csv"
+CSV_PATH = Path(__file__).resolve().parents[1] / "imports" / "test_cases_202609181013.csv"
 
 
 class TestCaseCsvTests(unittest.TestCase):

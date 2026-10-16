@@ -1,15 +1,15 @@
 [Unit]
-Description=RP1 Factory Aging-Test Control Gateway
+Description=RP1 Test HMI PLC Control Gateway
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=rp1-factory-gateway
+User=rp1-test-gateway
 Group=rp1-factory
-WorkingDirectory=/opt/rp1-factory-hmi/gateway
-EnvironmentFile=-/etc/rp1-factory-hmi/gateway.env
-ExecStart=/opt/rp1-factory-hmi/gateway/rp1-factory-gateway --host 127.0.0.1 --port 8765
+WorkingDirectory=/opt/rp1-test-hmi/gateway
+EnvironmentFile=-/etc/rp1-test-hmi/gateway.env
+ExecStart=/opt/rp1-test-hmi/gateway/rp1-factory-gateway --host 127.0.0.1 --port 8766
 Restart=on-failure
 RestartSec=2
 TimeoutStopSec=10
@@ -18,7 +18,7 @@ UMask=0007
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/rp1-factory-hmi
+ReadWritePaths=/var/lib/rp1-test-hmi
 AmbientCapabilities=CAP_NET_RAW
 
 [Install]

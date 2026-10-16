@@ -474,7 +474,7 @@ class MotorsPyBackend(MotorBackend):
                 response_count = self._response_count(self._motors[index])
                 # motors_py increments this counter when requesting status and
                 # resets it to zero only when that motor's feedback arrives.
-                if response_count == 0:
+                if feedback_count is None and response_count == 0:
                     self._last_response_counts[index] = 0
                     self._last_feedback_at[index] = received_at
                     pending.remove(index)
@@ -500,7 +500,9 @@ class MotorsPyBackend(MotorBackend):
             elif feedback_count is not None:
                 pass
             elif response_count is None:
-                self._last_feedback_at[index] = now
+                # An absent/broken receive counter supplies no evidence of a
+                # reply. Reading cached positions must not refresh its age.
+                pass
             elif (
                 self._enabled
                 and response_count == 0
@@ -703,6 +705,10 @@ class FakeMotorBackend(MotorBackend):
 
     def _enable_motors_impl(self) -> None:
         self.enabled[:] = True
+
+    def _refresh_feedback_impl(self) -> None:
+        now = time.monotonic()
+        self.feedback_timestamps[~self.stale] = now
 
     def _close_transport_impl(self) -> None:
         self.enabled[:] = False

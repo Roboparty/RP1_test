@@ -2,7 +2,7 @@
 
 English | [简体中文](README_CN.md)
 
-Test rigs, software and methods for RP1 module aging and whole-robot reliability testing. The repository includes arm, torso and leg-load rig files, RP1 Factory HMI, trajectory and data-collection tools, data services, and 18 draft whole-robot test methods.
+Test rigs, software and methods for RP1 module aging and whole-robot reliability testing. The repository includes arm, torso and leg-load rig files, a React test dashboard, PLC/CAN HMI, trajectory and data-collection tools, reliability services, and 18 draft whole-robot test methods.
 
 ![RP1 Factory HMI aging-test interface](docs/media/factory-hmi.jpg)
 
@@ -10,7 +10,7 @@ Test rigs, software and methods for RP1 module aging and whole-robot reliability
 
 | Task | Entry point |
 | --- | --- |
-| Run the software | [Factory HMI with the fake backend](software/host/README.md#快速开始) · [Data services and synthetic demo](software/README.md#快速开始) |
+| Run the software | [Test dashboard and platform](software/README.md) · [PLC/CAN HMI](software/host/README.md) · [Standalone telemetry demo](software/examples/telemetry-demo/README.md) |
 | Build a module test rig | [Hardware files and build guide](hardware/README.md) |
 | Plan and record a test | [18 test methods](test-cases/README.md) · [Inspection and run record](test-cases/checklist.md) |
 
@@ -31,7 +31,7 @@ Module-test control and summary dashboards from the companion platform.
 ## Contents
 
 - **Hardware:** manufacturing files and BOMs for module test rigs, plus a control-cabinet reference architecture.
-- **Software:** desktop HMI, local control gateway, trajectory tools, FastAPI service, PostgreSQL, InfluxDB and Grafana.
+- **Software:** React test dashboard, PLC/CAN HMI, FastAPI, PostgreSQL and verified CSV archives; an independent InfluxDB/Grafana demo is retained.
 - **Test methods:** 18 draft whole-robot methods with conditions, steps and record requirements.
 - **Offline analysis:** a [standalone Python tool and worked example](data-analysis/README.md) for active time, tracking error, temperature, missing samples and events.
 

@@ -47,7 +47,7 @@
       "additionalProperties": false,
       "required": ["status", "criteria_version", "reasons", "rules"],
       "properties": {
-        "status": {"enum": ["passed", "failed", "blocked"]},
+        "status": {"enum": ["passed", "failed", "blocked", "unconfigured"]},
         "criteria_version": {"type": "string", "minLength": 1, "maxLength": 128},
         "reasons": {
           "type": "array",

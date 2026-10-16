@@ -1,0 +1,81 @@
+.app-shell:has(.csv-import-page) { background: #f4f6fa; }
+.csv-import-page { --import-text: #202c40; --import-muted: #637186; --import-border: #e2e7ee; --import-surface: #fff; display: grid; gap: 20px; color: var(--import-text); }
+.csv-import-page * { box-sizing: border-box; }
+.csv-import-page .page-title { margin-bottom: 0; }
+.csv-import-page button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 36px; padding: 8px 12px; border: 1px solid #d8e0ea; border-radius: 5px; background: var(--import-surface); color: #245b9c; font-size: 13px; font-weight: 600; }
+.csv-import-page button:hover:not(:disabled) { background: #edf4ff; border-color: #93b8ec; }
+.csv-import-page button:disabled { opacity: .5; cursor: not-allowed; }
+.csv-import-page button svg { width: 16px; height: 16px; }
+.csv-import-page .back-button { justify-self: start; background: none; padding: 0; border: 0; }
+.import-steps { list-style: none; margin: 0; padding: 14px 18px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; border: 1px solid var(--import-border); border-radius: 7px; background: var(--import-surface); }
+.import-steps li { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 600; }
+.import-steps span { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #eaf2ff; color: #1769e8; }
+.import-workbench { display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+.import-workbench aside { position: sticky; top: 16px; }
+.csv-import-page .panel { padding: 20px; border: 1px solid var(--import-border); border-radius: 7px; background: var(--import-surface); box-shadow: none; }
+.csv-import-page .panel-head { padding: 0 0 18px; }
+.csv-import-page .panel h2 { font-size: 17px; }
+.csv-import-page .panel p { color: var(--import-muted); font-size: 12px; line-height: 1.7; }
+.import-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.import-workbench aside .import-form-grid { grid-template-columns: minmax(0, 1fr); }
+.csv-import-page label { display: grid; gap: 6px; color: var(--import-text); font-size: 13px; line-height: 1.5; }
+.csv-import-page input:not([type=checkbox]):not([type=file]), .csv-import-page select, .csv-import-page textarea { display: block; width: 100%; min-width: 0; min-height: 36px; border: 1px solid #d8e0ea; border-radius: 5px; background: var(--import-surface); padding: 7px 10px; color: var(--import-text); font-size: 13px; }
+.csv-import-page textarea { resize: vertical; min-height: 72px; }
+.csv-import-page input:focus-visible, .csv-import-page select:focus-visible, .csv-import-page textarea:focus-visible, .csv-import-page button:focus-visible, .csv-import-page summary:focus-visible { outline: 2px solid #1769e8; outline-offset: 2px; }
+.import-wide { grid-column: 1 / -1; }
+.import-bulk-button { width: 100%; margin-top: 18px; }
+.import-queue { min-width: 0; display: grid; gap: 16px; }
+.import-dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 28px; gap: 10px; border: 1px dashed #9fb9d6; border-radius: 7px; background: #fafdff; text-align: center; }
+.import-dropzone.dragging { background: #eaf2ff; border-color: #1769e8; }
+.import-dropzone > svg { width: 32px; height: 32px; color: #1769e8; }
+.import-dropzone h2 { margin: 0; font-size: 18px; }
+.import-dropzone p { margin: 0 0 5px; font-size: 13px; color: var(--import-muted); }
+.import-dropzone input[type=file] { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.import-execution-note { display: flex; align-items: start; gap: 8px; color: var(--import-muted); font-size: 12px; margin: 0; line-height: 1.7; }
+.import-execution-note svg { flex: none; width: 16px; height: 16px; margin-top: 2px; }
+.import-queue-heading { display: flex; justify-content: space-between; align-items: center; }
+.import-queue-heading h2 { margin: 0; font-size: 17px; }
+.import-queue-heading span { font-size: 13px; color: var(--import-muted); }
+.import-file { border: 1px solid var(--import-border); border-radius: 7px; padding: 20px; background: var(--import-surface); min-width: 0; }
+.import-file-heading { display: flex; align-items: start; gap: 10px; margin-bottom: 18px; }
+.import-file-heading > svg { width: 24px; height: 24px; color: #1769e8; flex: none; }
+.import-file-heading > div { min-width: 0; flex: 1; }
+.import-file-heading h3 { margin: 0; font-size: 14px; line-height: 1.5; overflow-wrap: anywhere; }
+.import-file-heading p { margin: 5px 0 0; font-size: 12px; color: var(--import-muted); }
+.csv-import-page .import-icon { padding: 5px; min-height: 28px; border: 0; }
+.import-facts { display: grid; grid-template-columns: 1fr 1fr 2fr 1.5fr; margin: 0 0 14px; padding: 14px; gap: 12px; background: #f7f9fc; border-radius: 5px; }
+.import-facts dt { font-size: 11px; color: var(--import-muted); margin-bottom: 5px; }
+.import-facts dd { margin: 0; font-size: 13px; font-variant-numeric: tabular-nums; }
+.import-warnings { padding: 11px 13px; border: 1px solid #f0dfaf; border-radius: 5px; background: #fffbf0; color: #785215; font-size: 12px; line-height: 1.7; }
+.csv-import-page summary { cursor: pointer; font-size: 12px; line-height: 1.6; }
+.import-warnings ul { margin: 8px 0 0; padding-left: 18px; }
+.import-column-details, .import-hash { margin-top: 12px; color: var(--import-muted); }
+.import-column-details .table-scroll { margin-top: 10px; max-height: 320px; overflow: auto; }
+.import-column-details td { font-size: 11px; white-space: nowrap; }
+.import-column-details th { white-space: nowrap; }
+.import-hash code { display: block; margin-top: 8px; font-size: 11px; overflow-wrap: anywhere; }
+.import-file-form { border-top: 1px solid var(--import-border); margin-top: 20px; padding-top: 18px; display: grid; gap: 14px; }
+.import-file-form h4 { font-size: 15px; margin: 0; }
+.import-file-form details > .import-form-grid { margin-top: 12px; }
+.csv-import-page .import-confirm { display: flex; align-items: start; gap: 8px; margin-top: 4px; }
+.import-confirm input { width: 16px; height: 16px; accent-color: #1769e8; flex: none; margin: 2px 0 0; }
+.csv-import-page .import-primary { background: #1769e8; border-color: #1769e8; color: white; justify-self: start; }
+.csv-import-page .import-primary:hover:not(:disabled) { background: #1159c9; }
+.import-hint { color: var(--import-muted); font-size: 12px; line-height: 1.7; margin: 8px 0; overflow-wrap: anywhere; }
+.import-errors { padding: 10px 14px; background: #fff2f2; color: #a32332; font-size: 13px; line-height: 1.7; border-radius: 5px; margin-top: 12px; }
+.import-errors button { margin-left: 12px; }
+.import-notice { padding: 10px 14px; background: #edf5ff; color: #245b9c; font-size: 13px; line-height: 1.7; margin: 8px 0 0; border-radius: 5px; }
+.import-progress { display: grid; gap: 8px; color: var(--import-muted); font-size: 12px; padding-block: 10px; }
+.import-progress progress { width: 100%; height: 8px; accent-color: #1769e8; }
+.import-receipt { border-top: 1px solid var(--import-border); padding-top: 18px; margin-top: 18px; }
+.import-receipt-title { display: flex; align-items: start; gap: 8px; color: #275d48; font-size: 14px; }
+.import-receipt-title svg { width: 18px; height: 18px; flex: none; }
+.import-receipt > p { font-size: 13px; line-height: 1.7; }
+.import-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+html[data-theme=night] .csv-import-page { --import-text: #e7edf6; --import-muted: #a1afc3; --import-border: #334052; --import-surface: #1f2a3c; }
+html[data-theme=night] .app-shell:has(.csv-import-page) { background: #151d2a; }
+html[data-theme=night] .import-dropzone, html[data-theme=night] .import-facts { background: #26354a; }
+html[data-theme=night] .csv-import-page input:not([type=checkbox]), html[data-theme=night] .csv-import-page select, html[data-theme=night] .csv-import-page textarea { border-color: #45566b; }
+@media (max-width: 1100px) { .import-workbench { grid-template-columns: 260px minmax(0, 1fr); gap: 14px; } .import-facts { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 800px) { .import-workbench { grid-template-columns: minmax(0, 1fr); } .import-workbench aside { position: static; } .import-workbench aside .import-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .import-steps { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 440px) { .import-form-grid, .import-workbench aside .import-form-grid { grid-template-columns: minmax(0, 1fr); } .import-file { padding: 14px; } .import-steps { padding: 12px; gap: 10px; } .import-steps li { font-size: 11px; } .import-facts { padding: 10px; gap: 10px; } .import-actions > button { flex: 1; } }

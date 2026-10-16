@@ -1,0 +1,2 @@
+# The local PLC package does not authorize physical CAN configuration.
+allowed_interfaces: []

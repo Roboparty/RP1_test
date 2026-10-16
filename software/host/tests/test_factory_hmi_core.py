@@ -463,7 +463,7 @@ class PlaybackTests(unittest.TestCase):
             self.assertEqual(controller.state, StationState.COMPLETED)
             controller.disconnect()
 
-    def test_watchdog_fault_disables_and_reset_reconnects(self) -> None:
+    def test_watchdog_fault_reset_leaves_disabled_until_explicit_enable(self) -> None:
         config, backend = fake_station(control_rate_hz=200.0)
         controller = FactoryController(config, backend, enable_watchdog=True)
         with tempfile.TemporaryDirectory() as tmp:
@@ -483,6 +483,9 @@ class PlaybackTests(unittest.TestCase):
 
             controller.reset()
             self.assertEqual(controller.state, StationState.CONNECTED)
+            self.assertFalse(bool(np.any(backend.enabled)))
+            self.assertFalse(controller.position_hold_active)
+            controller.enable_motors()
             self.assertTrue(bool(np.all(backend.enabled)))
             controller.disconnect()
 

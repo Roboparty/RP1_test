@@ -758,7 +758,15 @@ class GatewayApiTests(unittest.TestCase):
             )
             self.assertEqual(preview["motors"][0]["kp"], 60.0)
             self.assertNotIn("interface", preview["motors"][0])
-            self.assertTrue(Path(preview["config_path"]).is_file())
+            self.assertEqual(preview["config_path"], f"uploaded/{source.name}")
+            self.assertFalse(Path(preview["config_path"]).is_absolute())
+            resolved = client.post(
+                "/api/v1/config/preview",
+                headers={"X-RP1-Client-ID": "operator-a"},
+                json={"config_path": preview["config_path"], "limb": "left_arm"},
+            )
+            self.assertEqual(resolved.status_code, 200, resolved.text)
+            self.assertEqual(len(resolved.json()["result"]["motors"]), 7)
 
     def test_configuration_clear_allows_switching_motor_count(self) -> None:
         repository = Path(__file__).resolve().parents[1]
@@ -931,6 +939,7 @@ class GatewayApiTests(unittest.TestCase):
                         "loop": False,
                         "cycles": 0,
                         "record": False,
+                        "test_case_id": "REL-ARM-001",
                     },
                 )
                 self.assertEqual(started.status_code, 200, started.text)

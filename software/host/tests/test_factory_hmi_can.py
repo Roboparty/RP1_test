@@ -419,7 +419,9 @@ def test_helper_rolls_back_partial_connect_failure() -> None:
     }
 
     with pytest.raises(CanOperationError, match="rolled back"):
-        execute_request(request, policy=approved_policy("can0", "can1"), adapter=adapter)
+        execute_request(
+            request, policy=approved_policy("can0", "can1"), adapter=adapter
+        )
 
     assert adapter.states["can0"]["up"] is False
     assert ("disconnect", "can0") in adapter.calls
@@ -667,7 +669,7 @@ def test_pkexec_client_uses_fixed_argv_and_json_without_shell(
 
     assert observed["argv"] == [
         "/usr/bin/pkexec",
-        "/usr/lib/rp1-factory-hmi/factory-hmi-can-helper",
+        "/usr/lib/rp1-test-hmi/factory-hmi-can-helper",
     ]
     assert "shell" not in observed["kwargs"]
     assert json.loads(observed["kwargs"]["input"]) == {

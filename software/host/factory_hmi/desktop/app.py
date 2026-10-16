@@ -40,6 +40,7 @@ try:
         QGridLayout,
         QGroupBox,
         QHBoxLayout,
+        QInputDialog,
         QHeaderView,
         QLabel,
         QLayout,
@@ -71,12 +72,22 @@ except ModuleNotFoundError as exc:
     raise
 
 from factory_hmi.client import GatewayClient, GatewayError
+from factory_hmi.desktop.case_filter import (
+    LIMB_LABELS,
+    OTHER_CASE,
+    limb_label,
+    profile_matches_limb,
+    start_decision,
+)
+from factory_hmi.desktop.operator_review import analysis_text, measured_lines, review_package
 from factory_hmi.desktop.table_models import (
     GridTableModel,
     ZeroButtonDelegate,
     ZeroTableModel,
 )
+from factory_hmi.desktop.plc_page import PlcCabinetPage
 from factory_hmi.desktop.theme import apply_theme, set_tone
+from factory_hmi.plc.faults import cabinet_fault_messages
 
 
 class WorkerSignals(QObject):
@@ -177,8 +188,11 @@ class FactoryMainWindow(QMainWindow):
         self.pool = QThreadPool.globalInstance()
         self._workers: set[RestWorker] = set()
         self._configured = False
+        self._motor_fault_reset_pending = False
         self._trajectory_imported = False
         self._preflight_ok = False
+        self._preflight_pending = False
+        self._default_return_pending = False
         self._can_connected = False
         self._motors_discovered = False
         self._motors_enabled = False
@@ -191,6 +205,8 @@ class FactoryMainWindow(QMainWindow):
         self._configuration_pending = False
         self._active_limb: str | None = None
         self._last_snapshot: dict[str, Any] = {}
+        self._last_motor_fault_snapshot: dict[str, Any] = {}
+        self._last_plc_fault_snapshot: dict[str, Any] = {}
         self._last_trajectory: dict[str, Any] = {}
         self._config_preview: dict[str, Any] = {}
         self._available_can: list[dict[str, Any]] = []
@@ -206,12 +222,10 @@ class FactoryMainWindow(QMainWindow):
         self._zero_operation_pending = False
         self._execution_history: list[dict[str, Any]] = []
         self._platform_operator = ""
+        self._platform_profiles: list[dict[str, Any]] = []
+        self._platform_stations: list[dict[str, Any]] = []
 
-        app_icon = (
-            Path(__file__).resolve().parent
-            / "assets"
-            / "rp1-factory-hmi.png"
-        )
+        app_icon = Path(__file__).resolve().parent / "assets" / "rp1-factory-hmi.png"
         if app_icon.is_file():
             self.setWindowIcon(QIcon(str(app_icon)))
         self.setWindowTitle("可靠性测试上位机")
@@ -225,6 +239,8 @@ class FactoryMainWindow(QMainWindow):
         self._run_rest("检查网关", self.client.health, self._health_received)
         self._refresh_can_interfaces()
         self._refresh_execution_history()
+        self._refresh_platform_options()
+        self._refresh_local_bench()
 
     def _build_ui(self) -> None:
         root = QWidget()
@@ -236,10 +252,11 @@ class FactoryMainWindow(QMainWindow):
 
         header = QWidget()
         header.setObjectName("appHeader")
-        header.setFixedHeight(68)
-        header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(22, 10, 22, 10)
-        header_layout.setSpacing(16)
+        header.setFixedHeight(116)
+        header_layout = QVBoxLayout(header)
+        header_layout.setContentsMargins(22, 8, 22, 8)
+        header_layout.setSpacing(8)
+        header_layout.addLayout(self._build_platform_login_row())
 
         logo = QLabel()
         logo.setObjectName("brandLogo")
@@ -270,20 +287,18 @@ class FactoryMainWindow(QMainWindow):
         self.gateway_label.setObjectName("headerMuted")
         self.connection_badge = QLabel("● 网关连接中")
         self.connection_badge.setObjectName("statusWarning")
-        self.new_window_button = QPushButton("新增模块")
-        self.new_window_button.setObjectName("headerActionButton")
-        self.new_window_button.setToolTip("新建一个独立控制会话和上位机窗口")
-        self.new_window_button.clicked.connect(self._new_module_window)
-        header_layout.addWidget(logo)
-        header_layout.addWidget(divider)
-        header_layout.addWidget(title)
-        header_layout.addSpacing(10)
-        header_layout.addWidget(self.header_module_label)
-        header_layout.addWidget(self.header_robot_label)
-        header_layout.addStretch(1)
-        header_layout.addWidget(self.new_window_button)
-        header_layout.addWidget(self.gateway_label)
-        header_layout.addWidget(self.connection_badge)
+        brand_row = QHBoxLayout()
+        brand_row.setSpacing(16)
+        brand_row.addWidget(logo)
+        brand_row.addWidget(divider)
+        brand_row.addWidget(title)
+        brand_row.addSpacing(10)
+        brand_row.addWidget(self.header_module_label)
+        brand_row.addWidget(self.header_robot_label)
+        brand_row.addStretch(1)
+        brand_row.addWidget(self.gateway_label)
+        brand_row.addWidget(self.connection_badge)
+        header_layout.addLayout(brand_row)
         root_layout.addWidget(header)
 
         body = QWidget()
@@ -316,6 +331,12 @@ class FactoryMainWindow(QMainWindow):
         configuration_page = self._build_operation_page()
         aging_page = self._build_aging_page()
         manual_page = self._build_manual_control_page()
+        self.plc_page = PlcCabinetPage(
+            self.client,
+            self._run_rest,
+            lambda: self._platform_operator or "local-operator",
+        )
+        self.plc_page.snapshot_changed.connect(self._render_plc_fault)
         self._build_config_dialog()
         self._build_motor_dialog()
         self._build_zero_dialog()
@@ -327,6 +348,10 @@ class FactoryMainWindow(QMainWindow):
         self.tabs.addTab(
             self._wrap_workspace_page(manual_page, "manualPageScroll"),
             "关节控制",
+        )
+        self.tabs.addTab(
+            self._wrap_workspace_page(self.plc_page, "plcPageScroll"),
+            "PLC 配电柜",
         )
         body_layout.addWidget(self.tabs, 1)
 
@@ -376,12 +401,13 @@ class FactoryMainWindow(QMainWindow):
             ("样机配置与连接", lambda: self._select_main_page(0)),
             ("老化测试", lambda: self._select_main_page(1)),
             ("关节控制", lambda: self._select_main_page(2)),
+            ("PLC 配电柜", lambda: self._select_main_page(3)),
             ("电机监控", self._show_motor_dialog),
             ("电机标零", self._show_zero_dialog),
             ("模块参数", self._show_module_config_dialog),
         )
         for index, (label, handler) in enumerate(entries):
-            if index == 3:
+            if index == 4:
                 separator = QFrame()
                 separator.setObjectName("navSeparator")
                 separator.setFrameShape(QFrame.Shape.HLine)
@@ -408,7 +434,7 @@ class FactoryMainWindow(QMainWindow):
         self._sync_nav_to_tab(index)
 
     def _sync_nav_to_tab(self, index: int) -> None:
-        if hasattr(self, "_nav_buttons") and 0 <= index < 3:
+        if hasattr(self, "_nav_buttons") and 0 <= index < 4:
             self._nav_buttons[index].setChecked(True)
 
     def _activate_dialog_navigation(self, index: int) -> None:
@@ -481,9 +507,7 @@ class FactoryMainWindow(QMainWindow):
             QSizePolicy.Policy.Fixed,
         )
         browse_config = QPushButton("导入 YAML…")
-        browse_config.setToolTip(
-            "选择本机 YAML 后上传至网关，并自动识别电机参数。"
-        )
+        browse_config.setToolTip("选择本机 YAML 后上传至网关，并自动识别电机参数。")
         browse_config.clicked.connect(self._choose_config)
         config_row.addWidget(self.config_path, 1)
         config_row.addWidget(browse_config)
@@ -510,7 +534,7 @@ class FactoryMainWindow(QMainWindow):
         )
         self.limb.currentTextChanged.connect(self._suggest_config)
         self.robot_id = QLineEdit()
-        self.robot_id.setPlaceholderText("例如 RP1-001（必填）")
+        self.robot_id.setPlaceholderText("例如 RP1.3-ARM-001（必填）")
         self.robot_id.textChanged.connect(
             lambda value: self.header_robot_label.setText(
                 f"当前样机：{value.strip() or '未填写'}"
@@ -543,7 +567,7 @@ class FactoryMainWindow(QMainWindow):
         backend_row.addWidget(self.backend, 1)
         backend_row.addWidget(self.configure_button)
         configure_form.addRow("后端", backend_row)
-        self._suggest_config(self.limb.currentText())
+        self._suggest_config(self._selected_limb())
 
         connect_group = QGroupBox("2  CAN、电机发现与使能")
         connect_group.setObjectName("workflowCard")
@@ -593,9 +617,7 @@ class FactoryMainWindow(QMainWindow):
         button_grid.addWidget(self.discover_button, 0, 1)
         button_grid.addWidget(self.enable_motors_button, 0, 2)
         button_grid.addWidget(self.disconnect_button, 0, 3)
-        connect_hint = QLabel(
-            "使能前必须确认物理急停、安全回路、无人区和机构无干涉。"
-        )
+        connect_hint = QLabel("使能前必须确认物理急停、安全回路、无人区和机构无干涉。")
         connect_hint.setObjectName("muted")
         connect_hint.setWordWrap(True)
         connect_layout.addWidget(self.can_status_label)
@@ -703,14 +725,13 @@ class FactoryMainWindow(QMainWindow):
         self.duration_mode.setChecked(True)
         self.duration_mode.toggled.connect(self._update_run_limit_mode)
         self.record = QCheckBox("记录")
+        self.record.setToolTip("记录采集数据到本机。未选择平台档案时，无需平台登录或工位编号；选择档案时校验对应的平台信息。")
         self.record.setChecked(True)
         self.record_rate_hz = QSpinBox()
         self.record_rate_hz.setRange(1, 20)
         self.record_rate_hz.setValue(20)
         self.record_rate_hz.setSuffix(" Hz")
-        self.record_rate_hz.setToolTip(
-            "记录频率使用控制线程缓存反馈，最高 20 Hz。"
-        )
+        self.record_rate_hz.setToolTip("记录频率使用控制线程缓存反馈，最高 20 Hz。")
         self.record.toggled.connect(self.record_rate_hz.setEnabled)
         self.test_id = QLineEdit()
         self.test_id.setPlaceholderText("开始运行后自动生成")
@@ -786,7 +807,11 @@ class FactoryMainWindow(QMainWindow):
         controls_layout.addWidget(self.resume_button, 0, 1)
         controls_layout.addWidget(self.stop_button, 0, 2)
         controls_layout.addWidget(self.reset_button, 1, 0)
-        controls_layout.addWidget(self.disable_button, 1, 1, 1, 2)
+        self.motor_fault_reset_button = QPushButton("复位电机故障")
+        self.motor_fault_reset_button.setEnabled(False)
+        self.motor_fault_reset_button.clicked.connect(self._reset_motor_fault)
+        controls_layout.addWidget(self.motor_fault_reset_button, 1, 1)
+        controls_layout.addWidget(self.disable_button, 1, 2)
 
         self._operation_grid = layout
         self._operation_cards = (
@@ -861,25 +886,11 @@ class FactoryMainWindow(QMainWindow):
         module_layout.setColumnStretch(3, 2)
 
         self.limb = QComboBox()
-        self.limb.setEditable(True)
-        self.limb.addItems(
-            (
-                "left_arm",
-                "right_arm",
-                "left_short_arm",
-                "right_short_arm",
-                "left_leg",
-                "right_leg",
-                "left_short_leg",
-                "right_short_leg",
-                "waist_hip",
-                "biped_waist",
-                "upper_body",
-            )
-        )
-        self.limb.currentTextChanged.connect(self._suggest_config)
+        for key, label in LIMB_LABELS:
+            self.limb.addItem(label, key)
+        self.limb.currentIndexChanged.connect(lambda _index: self._suggest_config(self._selected_limb()))
         self.robot_id = QLineEdit()
-        self.robot_id.setPlaceholderText("例如 RP1-001（必填）")
+        self.robot_id.setPlaceholderText("例如 RP1.3-ARM-001（必填）")
         self.backend = QComboBox()
         self.robot_id.textChanged.connect(
             lambda value: self.header_robot_label.setText(
@@ -921,7 +932,7 @@ class FactoryMainWindow(QMainWindow):
         module_layout.addWidget(self.configure_button, 2, 3)
         module_layout.addWidget(self.active_config_label, 3, 0, 1, 3)
         module_layout.addWidget(self.clear_config_button, 3, 3)
-        self._suggest_config(self.limb.currentText())
+        self._suggest_config(self._selected_limb())
 
         preparation_group = QGroupBox("连接与执行准备")
         preparation_group.setObjectName("workflowCard")
@@ -989,9 +1000,7 @@ class FactoryMainWindow(QMainWindow):
         ):
             connection_layout.setColumnStretch(column, 1)
             connection_layout.addWidget(button, 1, column)
-        connection_hint = QLabel(
-            "使能前确认急停、安全回路、无人区和机构无干涉。"
-        )
+        connection_hint = QLabel("使能前确认急停、安全回路、无人区和机构无干涉。")
         connection_hint.setObjectName("muted")
         connection_hint.setWordWrap(True)
         self.motor_monitor_button = QPushButton("打开电机监控…")
@@ -1032,11 +1041,16 @@ class FactoryMainWindow(QMainWindow):
         self.reset_button.setObjectName("outlineButton")
         self.reset_button.setEnabled(False)
         self.reset_button.clicked.connect(self._return_default)
-        self.preflight_button = QPushButton("执行预检并进入 Armed")
+        self.preflight_button = QPushButton("执行预检，通过后可以开始")
         self.preflight_button.setObjectName("primaryButton")
         self.preflight_button.setEnabled(False)
         self.preflight_button.clicked.connect(self._confirm_preflight)
         preflight_actions.addWidget(self.reset_button)
+        self.motor_fault_reset_button = QPushButton("复位电机故障")
+        self.motor_fault_reset_button.setObjectName("outlineButton")
+        self.motor_fault_reset_button.setEnabled(False)
+        self.motor_fault_reset_button.clicked.connect(self._reset_motor_fault)
+        preflight_actions.addWidget(self.motor_fault_reset_button)
         preflight_actions.addWidget(self.preflight_button, 1)
         trajectory_layout.addLayout(preflight_actions)
         self.preflight_result = QLabel("等待轨迹导入")
@@ -1075,14 +1089,13 @@ class FactoryMainWindow(QMainWindow):
         self.duration_mode.setChecked(True)
         self.duration_mode.toggled.connect(self._update_run_limit_mode)
         self.record = QCheckBox("记录")
+        self.record.setToolTip("记录采集数据到本机。未选择平台档案时，无需平台登录或工位编号；选择档案时校验对应的平台信息。")
         self.record.setChecked(True)
         self.record_rate_hz = QSpinBox()
         self.record_rate_hz.setRange(1, 20)
         self.record_rate_hz.setValue(20)
         self.record_rate_hz.setSuffix(" Hz")
-        self.record_rate_hz.setToolTip(
-            "记录频率使用控制线程缓存反馈，最高 20 Hz。"
-        )
+        self.record_rate_hz.setToolTip("记录频率使用控制线程缓存反馈，最高 20 Hz。")
         self.record.toggled.connect(self.record_rate_hz.setEnabled)
         self.test_id = QLineEdit()
         self.test_id.setPlaceholderText("开始运行后自动生成")
@@ -1160,6 +1173,41 @@ class FactoryMainWindow(QMainWindow):
         page_layout.addWidget(scroll, 1)
         return page
 
+    def _build_platform_login_row(self) -> QHBoxLayout:
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        self.platform_station_id = QLineEdit()
+        self.platform_station_id.setObjectName("headerField")
+        self.platform_station_id.setPlaceholderText("本机台架，例如 a10")
+        self.platform_station_id.setFixedWidth(150)
+        self.platform_station_id.setToolTip("这台电脑对应的台架编号。必须与所选用例里的台架一致。")
+        self.platform_station_id.editingFinished.connect(self._save_local_bench)
+        self.platform_username = QLineEdit()
+        self.platform_username.setObjectName("headerField")
+        self.platform_username.setPlaceholderText("操作员账号")
+        self.platform_username.setFixedWidth(150)
+        self.platform_password = QLineEdit()
+        self.platform_password.setObjectName("headerField")
+        self.platform_password.setPlaceholderText("密码（仅保存在内存）")
+        self.platform_password.setEchoMode(QLineEdit.EchoMode.Password)
+        self.platform_password.setFixedWidth(168)
+        self.platform_password.returnPressed.connect(self._platform_login)
+        self.platform_login_button = QPushButton("登录测试平台")
+        self.platform_login_button.clicked.connect(self._platform_login)
+        self.platform_logout_button = QPushButton("退出平台")
+        self.platform_logout_button.setObjectName("headerActionButton")
+        self.platform_logout_button.setEnabled(False)
+        self.platform_logout_button.clicked.connect(self._platform_logout)
+        self.platform_identity_label = QLabel("平台账号：未登录")
+        self.platform_identity_label.setObjectName("headerMuted")
+        row.addWidget(self.platform_station_id)
+        row.addWidget(self.platform_username)
+        row.addWidget(self.platform_password)
+        row.addWidget(self.platform_login_button)
+        row.addWidget(self.platform_logout_button)
+        row.addWidget(self.platform_identity_label, 1)
+        return row
+
     def _build_aging_page(self) -> QWidget:
         page = QWidget()
         page.setObjectName("tabPage")
@@ -1183,6 +1231,30 @@ class FactoryMainWindow(QMainWindow):
         steps.setAlignment(Qt.AlignmentFlag.AlignCenter)
         steps.setWordWrap(True)
         page_layout.addWidget(steps)
+        context_row = QHBoxLayout()
+        context_row.addWidget(QLabel("用例编号"))
+        self.platform_case_code = QComboBox()
+        self.platform_case_code.addItem("请选择用例编号", None)
+        self.platform_case_code.addItem("其他", OTHER_CASE)
+        self.platform_case_code.setToolTip("必须选择用例。没有对应用例时选其他并填写名称；核实提交后归档到待归类区。")
+        self.platform_case_code.currentIndexChanged.connect(self._platform_case_changed)
+        context_row.addWidget(self.platform_case_code, 2)
+        context_row.addWidget(QLabel("样品与台架"))
+        self.platform_test_profile = QComboBox()
+        self.platform_test_profile.addItem("未选择（仅本地保存）", None)
+        self.platform_test_profile.setToolTip("同一用例有多个样品或台架时，必须手动选择。")
+        self.platform_test_profile.currentIndexChanged.connect(self._platform_profile_changed)
+        context_row.addWidget(self.platform_test_profile, 3)
+        context_row.addWidget(QLabel("测试阶段"))
+        self.platform_stage = QComboBox()
+        self.platform_stage.addItem("测试阶段1", {"sequence_no": 1, "stage_name": "测试阶段1"})
+        self.platform_stage.setToolTip("使用平台已经建好的测试阶段。")
+        context_row.addWidget(self.platform_stage, 2)
+        page_layout.addLayout(context_row)
+        self.platform_context_status = QLabel("登录平台后选择用例编号、样品和台架")
+        self.platform_context_status.setObjectName("muted")
+        self.platform_context_status.setWordWrap(True)
+        page_layout.addWidget(self.platform_context_status)
         setup_row = QHBoxLayout()
         setup_row.setSpacing(16)
         setup_row.addWidget(self._trajectory_panel, 1)
@@ -1194,25 +1266,10 @@ class FactoryMainWindow(QMainWindow):
         result_layout = QVBoxLayout(result_group)
         result_layout.setContentsMargins(16, 14, 16, 16)
         result_layout.setSpacing(10)
-        login_row = QHBoxLayout()
-        self.platform_station_id = QLineEdit()
-        self.platform_station_id.setPlaceholderText("工位 ID")
-        self.platform_username = QLineEdit()
-        self.platform_username.setPlaceholderText("操作员账号")
-        self.platform_password = QLineEdit()
-        self.platform_password.setPlaceholderText("密码（仅保存在内存）")
-        self.platform_password.setEchoMode(QLineEdit.EchoMode.Password)
-        self.platform_login_button = QPushButton("登录测试平台")
-        self.platform_login_button.setObjectName("outlineButton")
-        self.platform_login_button.clicked.connect(self._platform_login)
-        self.platform_identity_label = QLabel("平台账号：未登录")
-        self.platform_identity_label.setObjectName("muted")
-        login_row.addWidget(self.platform_station_id, 1)
-        login_row.addWidget(self.platform_username, 1)
-        login_row.addWidget(self.platform_password, 1)
-        login_row.addWidget(self.platform_login_button)
-        login_row.addWidget(self.platform_identity_label, 1)
-        result_layout.addLayout(login_row)
+        self.submission_status_label = QLabel("尚未提交。核实并提交后才归档原始 CSV；批准前不进入正式统计。")
+        self.submission_status_label.setObjectName("infoPanel")
+        self.submission_status_label.setWordWrap(True)
+        result_layout.addWidget(self.submission_status_label)
         status_row = QHBoxLayout()
         self.aging_elapsed_label = QLabel("已运行：00:00:00")
         self.aging_cycle_label = QLabel("循环：0")
@@ -1274,6 +1331,9 @@ class FactoryMainWindow(QMainWindow):
         self.refresh_history_button = QPushButton("刷新执行记录")
         self.refresh_history_button.setObjectName("outlineButton")
         self.refresh_history_button.clicked.connect(self._refresh_execution_history)
+        self.import_history_button = QPushButton("补录历史 CSV…")
+        self.import_history_button.setObjectName("outlineButton")
+        self.import_history_button.clicked.connect(self._import_history_csv)
         self.save_csv_button = QPushButton("保存 CSV…")
         self.save_csv_button.setObjectName("outlineButton")
         self.save_csv_button.setEnabled(False)
@@ -1286,7 +1346,7 @@ class FactoryMainWindow(QMainWindow):
         self.submit_review_button.setObjectName("primaryButton")
         self.submit_review_button.setEnabled(False)
         self.submit_review_button.clicked.connect(self._submit_execution)
-        self.retry_upload_button = QPushButton("重试上传")
+        self.retry_upload_button = QPushButton("重试归档")
         self.retry_upload_button.setObjectName("outlineButton")
         self.retry_upload_button.clicked.connect(self._retry_execution)
         self.review_comment_button = QPushButton("查看审批意见")
@@ -1301,6 +1361,7 @@ class FactoryMainWindow(QMainWindow):
         self.next_run_button.clicked.connect(self._prepare_next_run)
         for button in (
             self.refresh_history_button,
+            self.import_history_button,
             self.save_csv_button,
             self.export_bundle_button,
             self.submit_review_button,
@@ -1323,9 +1384,7 @@ class FactoryMainWindow(QMainWindow):
 
         heading = QLabel("关节控制")
         heading.setObjectName("pageHeading")
-        description = QLabel(
-            "查看当前关节角度，在安全确认后调整目标角度和移动速度。"
-        )
+        description = QLabel("查看当前关节角度，在安全确认后调整目标角度和移动速度。")
         description.setObjectName("pageDescription")
         layout.addWidget(heading)
         layout.addWidget(description)
@@ -1383,9 +1442,7 @@ class FactoryMainWindow(QMainWindow):
         self.manual_speed_spin.setValue(10.0)
         self.manual_speed_spin.setSuffix(" °/s")
         self.manual_speed_spin.setEnabled(False)
-        self.manual_speed_slider.valueChanged.connect(
-            self._manual_speed_from_slider
-        )
+        self.manual_speed_slider.valueChanged.connect(self._manual_speed_from_slider)
         self.manual_speed_spin.valueChanged.connect(self._manual_speed_from_spin)
         speed_row.addWidget(self.manual_speed_slider, 1)
         speed_row.addWidget(self.manual_speed_spin)
@@ -1619,9 +1676,7 @@ class FactoryMainWindow(QMainWindow):
         self.zero_table = QTableView()
         self.zero_table.setObjectName("zeroTable")
         self.zero_table.setModel(self.zero_table_model)
-        self.zero_table.setEditTriggers(
-            QAbstractItemView.EditTrigger.NoEditTriggers
-        )
+        self.zero_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.zero_table.setSelectionBehavior(
             QAbstractItemView.SelectionBehavior.SelectRows
         )
@@ -1671,13 +1726,13 @@ class FactoryMainWindow(QMainWindow):
         return dialog
 
     def _show_motor_dialog(self) -> None:
-        self._activate_dialog_navigation(3)
+        self._activate_dialog_navigation(4)
         self.motor_dialog.show()
         self.motor_dialog.raise_()
         self.motor_dialog.activateWindow()
 
     def _show_zero_dialog(self) -> None:
-        self._activate_dialog_navigation(4)
+        self._activate_dialog_navigation(5)
         self.zero_dialog.show()
         self.zero_dialog.raise_()
         self.zero_dialog.activateWindow()
@@ -1692,6 +1747,7 @@ class FactoryMainWindow(QMainWindow):
             return
         self._compact_layout = compact
         self.gateway_label.setVisible(not compact)
+        self.platform_identity_label.setVisible(not compact)
 
         while self._operation_grid.count():
             self._operation_grid.takeAt(0)
@@ -1787,11 +1843,45 @@ class FactoryMainWindow(QMainWindow):
                 background: #eaf1f7; border: 1px solid #cad8e4; border-radius: 6px;
                 color: #234e70; font-weight: 700; padding: 8px 14px;
             }
+            QLabel#flowStep {
+                min-height: 36px; color: #526476; background: #f3f6f9;
+                border: 1px solid #dce4eb; border-radius: 7px;
+                padding: 0 10px; font-weight: 700;
+            }
+            QLabel#flowStep[tone="success"] {
+                color: #18754f; background: #edf9f3; border-color: #bfdccf;
+            }
+            QLabel#flowStep[tone="warning"] {
+                color: #8c5b14; background: #fff8eb; border-color: #ebd19f;
+            }
+            QLabel#flowStep[tone="danger"] {
+                color: #a82626; background: #fff3f2; border-color: #f0c3bf;
+            }
+            QLabel#flowArrow { color: #8a98a8; font-size: 18px; font-weight: 700; }
+            QLabel#controlHint {
+                min-height: 28px; color: #607284; background: #f7f9fc;
+                border-radius: 5px; padding: 4px 8px; font-size: 12px;
+            }
             QFrame#contentCard {
                 background: #ffffff; border: 1px solid #d7dfe7; border-radius: 5px;
             }
             QFrame#phasePanel {
                 background: #f8fafc; border: 1px solid #dbe3ea; border-radius: 5px;
+            }
+            QFrame#channelCard {
+                background: #fbfcfe; border: 1px solid #dce4eb; border-radius: 8px;
+            }
+            QLabel#channelTitle {
+                color: #173a58; font-size: 15px; font-weight: 700;
+            }
+            QLabel#channelState { min-height: 23px; color: #536679; font-weight: 600; }
+            QLabel#channelState[tone="success"] { color: #18754f; }
+            QLabel#channelState[tone="warning"] { color: #8c5b14; }
+            QLabel#channelState[tone="danger"] { color: #a82626; }
+            QLabel#channelMetric {
+                color: #203c55; background: #eef4f9; border-radius: 6px;
+                padding: 8px; font-family: "DejaVu Sans Mono", "Noto Sans Mono CJK SC", monospace;
+                font-size: 13px; font-weight: 600;
             }
             QLabel#phaseTitle { color: #173a58; font-size: 13px; font-weight: 700; }
             QDialog#moduleConfigDialog { background: #f3f5f8; color: #263442; }
@@ -2007,6 +2097,7 @@ class FactoryMainWindow(QMainWindow):
         *,
         quiet: bool = False,
         on_finished: Callable[[], None] | None = None,
+        on_failure: Callable[[Exception], None] | None = None,
     ) -> None:
         worker = RestWorker(operation)
         self._workers.add(worker)
@@ -2019,6 +2110,8 @@ class FactoryMainWindow(QMainWindow):
                     f"{action}成功", 4000
                 )
             )
+        if on_failure is not None:
+            worker.signals.failed.connect(on_failure)
         worker.signals.failed.connect(
             lambda exc, action=label, silent=quiet: self._rest_failed(
                 action, exc, silent
@@ -2033,6 +2126,20 @@ class FactoryMainWindow(QMainWindow):
 
     def _rest_failed(self, action: str, exc: Exception, quiet: bool) -> None:
         detail = str(exc.detail or "") if isinstance(exc, GatewayError) else ""
+        if action == "进入 Armed":
+            self._preflight_pending = False
+            self._preflight_ok = False
+            self.preflight_result.setText(f"预检未通过：{detail or str(exc)}")
+            self.preflight_result.setStyleSheet("color: #d92d20; font-weight: 700;")
+        if action == "回默认位":
+            self._default_return_pending = False
+            self._preflight_ok = False
+            self.preflight_result.setText("回默认位未完成，请查看故障信息。")
+            self.preflight_result.setStyleSheet("color: #d92d20; font-weight: 700;")
+        if action == "复位电机故障":
+            self._preflight_ok = False
+            self.preflight_result.setText("电机故障复位未确认，请查看故障信息；禁止使能或运动。")
+            self.preflight_result.setStyleSheet("color: #d92d20; font-weight: 700;")
         if action == "进入 Armed" and "first-frame delta too large" in detail:
             self._handle_first_frame_preflight_failure(detail)
             self._run_rest(
@@ -2074,10 +2181,21 @@ class FactoryMainWindow(QMainWindow):
                 )
             else:
                 message = f"{action}失败：{exc}"
-        elif "failed to enable with error_id=7" in detail:
+        elif (
+            "return to default interrupted by stop request" in detail
+            or "motor operation interrupted by stop request" in detail
+        ):
+            message = f"{action}未完成：已被失能或断开请求中止。"
+        elif "fresh feedback timeout" in detail:
+            message = (
+                f"{action}未完成：未收到全部电机持续更新的反馈。"
+                "请检查 CAN 连接、对应电机和供电，确认现场状态后再操作。"
+            )
+        elif "error_id=7" in detail:
             motor_id = "未知"
-            if " id=" in detail:
-                motor_id = detail.split(" id=", 1)[1].split()[0]
+            match = re.search(r"\bid=(\d+)", detail)
+            if match:
+                motor_id = match.group(1)
             message = (
                 f"{action}失败：电机 ID {motor_id} 报告驱动器故障"
                 "（DRV_ERROR，error_id=7）。"
@@ -2089,7 +2207,10 @@ class FactoryMainWindow(QMainWindow):
                 f"{action}失败：当前电机连接尚未断开。"
                 "请先点击“断开连接”，确认 CAN 和电机均断开后再应用配置。"
             )
-        elif "operation requires state [disconnected], current state is connected" in detail:
+        elif (
+            "operation requires state [disconnected], current state is connected"
+            in detail
+        ):
             message = (
                 f"{action}失败：电机已经连接，不能重复扫描。"
                 "如需重新扫描，请先点击“断开连接”。"
@@ -2136,12 +2257,8 @@ class FactoryMainWindow(QMainWindow):
             f"{measurement}\n\n"
             "系统仍保持使能和当前位置保持，不会自动失能。"
         )
-        self.preflight_result.setText(
-            f"预检未通过：{joint} 未复位，禁止启动老化。"
-        )
-        self.preflight_result.setStyleSheet(
-            "color: #b42318; font-weight: 700;"
-        )
+        self.preflight_result.setText(f"预检未通过：{joint} 未复位，禁止启动老化。")
+        self.preflight_result.setStyleSheet("color: #b42318; font-weight: 700;")
         if self._preflight_recheck_after_reset:
             self._preflight_recheck_after_reset = False
             QMessageBox.critical(
@@ -2280,21 +2397,15 @@ class FactoryMainWindow(QMainWindow):
                 bucket = result.setdefault(motor_id, [])
                 if label not in bucket:
                     bucket.append(label)
-        return {
-            motor_id: "；".join(items)
-            for motor_id, items in result.items()
-        }
+        return {motor_id: "；".join(items) for motor_id, items in result.items()}
 
     def _render_snapshot(self, snapshot: dict[str, Any]) -> None:
         self._last_snapshot = snapshot
-        module_name = self._active_limb or self.limb.currentText().strip()
+        self._render_platform_presence(snapshot.get("platform"))
+        module_name = self._active_limb or self._selected_limb()
         robot_name = self.robot_id.text().strip()
-        self.header_module_label.setText(
-            f"当前模块：{module_name or '未配置'}"
-        )
-        self.header_robot_label.setText(
-            f"当前样机：{robot_name or '未填写'}"
-        )
+        self.header_module_label.setText(f"当前模块：{limb_label(module_name)}")
+        self.header_robot_label.setText(f"当前样机：{robot_name or '未填写'}")
         motors: Any = snapshot.get("motors")
         if motors is None:
             motors = snapshot.get("motor_status")
@@ -2397,14 +2508,29 @@ class FactoryMainWindow(QMainWindow):
                         default="正常",
                     )
                 )
-            if (
-                diagnostic.startswith("通信反馈超时")
-                and not stale
-            ):
+            feedback_timestamp = self._pick(motor, "timestamp_s", default=None)
+            never_received = (
+                isinstance(feedback_timestamp, (int, float))
+                and (
+                    not math.isfinite(float(feedback_timestamp))
+                    or float(feedback_timestamp) <= 0.0
+                )
+            )
+            if never_received:
+                stale = True
+                feedback_age = "—"
+            if diagnostic in {"", "正常", "—"}:
+                if never_received:
+                    diagnostic = "未收到电机反馈"
+                elif stale:
+                    diagnostic = "通信反馈超时"
+            if diagnostic.startswith("通信反馈超时") and not stale:
                 diagnostic += "；当前反馈已恢复"
             explicit_error = self._pick(motor, "error", "position_error", default=None)
-            if explicit_error is None and isinstance(target, (int, float)) and isinstance(
-                actual, (int, float)
+            if (
+                explicit_error is None
+                and isinstance(target, (int, float))
+                and isinstance(actual, (int, float))
             ):
                 explicit_error = target - actual
             target = self._degrees(target)
@@ -2425,11 +2551,7 @@ class FactoryMainWindow(QMainWindow):
                 actual,
                 explicit_error,
                 speed,
-                (
-                    "—"
-                    if stale
-                    else self._pick(motor, "torque", "torque_nm")
-                ),
+                ("—" if stale else self._pick(motor, "torque", "torque_nm")),
                 (
                     "—"
                     if stale
@@ -2457,7 +2579,12 @@ class FactoryMainWindow(QMainWindow):
                         "current_a",
                     )
                 ),
-                self._pick(motor, "error_id", default=0),
+                (
+                    "—"
+                    if never_received
+                    and self._pick(motor, "error_id", default=0) in {None, 0, "0"}
+                    else self._pick(motor, "error_id", default=0)
+                ),
                 diagnostic,
                 feedback_age,
             )
@@ -2469,7 +2596,9 @@ class FactoryMainWindow(QMainWindow):
                 has_error = values[11] not in (None, "", "0", "—")
             if has_error:
                 motor_tones[(row, 11)] = "danger"
-            if diagnostic not in {None, "", "正常", "—"}:
+            if diagnostic == "未收到电机反馈":
+                motor_tones[(row, 12)] = "warning"
+            elif diagnostic not in {None, "", "正常", "—"}:
                 motor_tones[(row, 12)] = "danger"
             else:
                 motor_tones[(row, 12)] = "success"
@@ -2502,9 +2631,7 @@ class FactoryMainWindow(QMainWindow):
                 values[11],
                 "标零中…" if self._zero_operation_pending else "标零",
             )
-            zero_rows.append(
-                tuple(self._format_value(value) for value in zero_values)
-            )
+            zero_rows.append(tuple(self._format_value(value) for value in zero_values))
             if has_error:
                 zero_tones[(row, 4)] = "danger"
             zero_metadata.append(
@@ -2578,6 +2705,13 @@ class FactoryMainWindow(QMainWindow):
                 f"记录：{record_state} · {row_count} 行"
                 + (f" · {filename}" if filename else "")
             )
+            official = str(playback.get("execution_code") or "")
+            local_id = str(playback.get("test_id") or "")
+            shown = str(self.test_id.property("record_id") or "")
+            if official and (not shown or shown == local_id):
+                self.test_id.setProperty("record_id", local_id or shown)
+                self.test_id.setText(official)
+                self.test_id.setToolTip(f"正式执行编号\n本地记录：{local_id}")
             self.save_csv_button.setEnabled(
                 bool(recording.get("finished") and filename)
             )
@@ -2586,11 +2720,7 @@ class FactoryMainWindow(QMainWindow):
             self.save_csv_button.setEnabled(False)
 
         statistics = playback.get("statistics")
-        joints = (
-            statistics.get("joints", [])
-            if isinstance(statistics, Mapping)
-            else []
-        )
+        joints = statistics.get("joints", []) if isinstance(statistics, Mapping) else []
         if not isinstance(joints, list):
             joints = []
         rows: list[tuple[Any, ...]] = []
@@ -2673,9 +2803,7 @@ class FactoryMainWindow(QMainWindow):
                 self.manual_joint_table.setItem(
                     row,
                     0,
-                    QTableWidgetItem(
-                        str(entry.get("joint_name", f"joint_{row}"))
-                    ),
+                    QTableWidgetItem(str(entry.get("joint_name", f"joint_{row}"))),
                 )
                 motor_id = QTableWidgetItem(str(entry.get("motor_id", "—")))
                 motor_id.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -2691,9 +2819,7 @@ class FactoryMainWindow(QMainWindow):
                 target.setSuffix(" °")
                 target.setAccelerated(False)
                 target.setKeyboardTracking(False)
-                target.setButtonSymbols(
-                    QAbstractSpinBox.ButtonSymbols.UpDownArrows
-                )
+                target.setButtonSymbols(QAbstractSpinBox.ButtonSymbols.UpDownArrows)
                 target.setReadOnly(False)
                 target.setEnabled(False)
                 if row < len(joint_positions) and isinstance(
@@ -2701,16 +2827,12 @@ class FactoryMainWindow(QMainWindow):
                 ):
                     target.setValue(math.degrees(float(joint_positions[row])))
                 target.valueChanged.connect(
-                    lambda _value, motor_row=row: self._manual_target_changed(
-                        motor_row
-                    )
+                    lambda _value, motor_row=row: self._manual_target_changed(motor_row)
                 )
                 self.manual_joint_table.setCellWidget(row, 3, target)
 
         for row in range(min(len(entries), self.manual_joint_table.rowCount())):
-            actual_value = (
-                joint_positions[row] if row < len(joint_positions) else None
-            )
+            actual_value = joint_positions[row] if row < len(joint_positions) else None
             actual = self.manual_joint_table.item(row, 2)
             if actual is not None:
                 actual.setText(self._format_value(self._degrees(actual_value)))
@@ -2758,9 +2880,7 @@ class FactoryMainWindow(QMainWindow):
             "关节控制已开启"
             if manual_active
             else (
-                "正在进入关节控制…"
-                if self._manual_starting
-                else "进入关节控制并保持"
+                "正在进入关节控制…" if self._manual_starting else "进入关节控制并保持"
             )
         )
         self.manual_move_button.setEnabled(
@@ -2812,7 +2932,12 @@ class FactoryMainWindow(QMainWindow):
             return QColor("#fff0bd")
         return QColor("#e7f6e9")
 
+    def _render_plc_fault(self, snapshot: dict[str, Any]) -> None:
+        self._last_plc_fault_snapshot = snapshot
+        self._render_fault(self._last_motor_fault_snapshot)
+
     def _render_fault(self, snapshot: Mapping[str, Any]) -> None:
+        self._last_motor_fault_snapshot = dict(snapshot)
         fault = snapshot.get("global_fault", snapshot.get("fault"))
         if not fault:
             self.global_fault.setText("●  全局故障：无")
@@ -2821,12 +2946,14 @@ class FactoryMainWindow(QMainWindow):
             if isinstance(fault, Mapping):
                 diagnoses = fault.get("diagnoses")
                 diagnosis: Mapping[str, Any] = fault
-                if (
-                    isinstance(diagnoses, list)
-                    and diagnoses
-                    and isinstance(diagnoses[0], Mapping)
-                ):
-                    diagnosis = diagnoses[0]
+                if isinstance(diagnoses, list):
+                    candidates = [item for item in diagnoses if isinstance(item, Mapping)]
+                    severity_order = {"critical": 4, "error": 3, "warning": 2, "warn": 2, "info": 1}
+                    diagnosis = max(
+                        candidates,
+                        key=lambda item: severity_order.get(str(item.get("severity", "")).lower(), 0),
+                        default=fault,
+                    )
                 suspected = self._pick(
                     diagnosis, "suspected_component", default="未知部件"
                 )
@@ -2835,13 +2962,24 @@ class FactoryMainWindow(QMainWindow):
                     evidence = "；".join(str(item) for item in evidence)
                 action = self._pick(diagnosis, "action", default="停机检查")
                 confidence = self._pick(diagnosis, "confidence", default="未知")
+                message = str(fault.get("message") or "").strip()
+                primary = f"故障：{message}  |  " if message else ""
                 text = (
-                    f"⚠  全局故障  |  疑似部件：{suspected}  |  证据：{evidence}  |  "
+                    f"⚠  全局故障  |  {primary}疑似部件：{suspected}  |  证据：{evidence}  |  "
                     f"处置：{action}  |  置信度：{confidence}"
                 )
             else:
                 text = f"⚠  全局故障：{fault}"
             self.global_fault.setText(text)
+            self.global_fault.setObjectName("faultBarError")
+        status = self._last_plc_fault_snapshot.get("status")
+        messages = cabinet_fault_messages(status) if isinstance(status, Mapping) else []
+        if messages:
+            cabinet_text = "；".join(messages)
+            self.global_fault.setText(
+                self.global_fault.text() + "\n配电柜：" + cabinet_text
+                if fault else "⚠  全局故障  |  " + cabinet_text
+            )
             self.global_fault.setObjectName("faultBarError")
         self.global_fault.style().unpolish(self.global_fault)
         self.global_fault.style().polish(self.global_fault)
@@ -2871,6 +3009,8 @@ class FactoryMainWindow(QMainWindow):
             station_hold = None
             active_limb = ""
         self._active_limb = active_limb or None
+        if "trajectory" in snapshot:
+            self._trajectory_imported = isinstance(snapshot["trajectory"], Mapping)
         configured_motors = snapshot.get("configured_motors")
         active_motor_count = (
             len(configured_motors) if isinstance(configured_motors, list) else 0
@@ -2883,21 +3023,13 @@ class FactoryMainWindow(QMainWindow):
             )
         else:
             self.active_config_label.setText("当前生效：尚未配置")
-        selected_limb = self.limb.currentText().strip()
+        selected_limb = self._selected_limb()
         self.configure_button.setText(
             "重新应用模块"
             if self._active_limb and selected_limb == self._active_limb
             else "切换并应用模块"
         )
-        state = str(
-            self._pick(
-                snapshot,
-                "state",
-                "playback_state",
-                "status",
-                default=station_state or "",
-            )
-        ).lower()
+        state = self._current_station_state(snapshot)
         connected_value = self._pick(
             snapshot,
             "connected",
@@ -2921,11 +3053,10 @@ class FactoryMainWindow(QMainWindow):
             self._motors_enabled = True
         elif not self._motors_discovered:
             self._motors_enabled = False
-        if state == "armed" and self._trajectory_imported:
-            self._preflight_ok = True
-            self.preflight_button.setEnabled(False)
-        elif state in {"connected", "disconnected", "idle", "fault"}:
-            self._preflight_ok = False
+        self._preflight_ok = bool(
+            state == "armed" and self._trajectory_imported and self._motors_enabled
+            and not self._preflight_pending and not self._default_return_pending
+        )
 
         can = snapshot.get("can")
         if isinstance(can, Mapping):
@@ -2948,8 +3079,7 @@ class FactoryMainWindow(QMainWindow):
             detail_text = "等待服务状态"
 
         self.can_status_label.setText(
-            f"CAN\n{'已连接' if self._can_connected else '未连接'}"
-            f" · {detail_text}"
+            f"CAN\n{'已连接' if self._can_connected else '未连接'} · {detail_text}"
         )
         self.motor_discovery_label.setText(
             "电机\n"
@@ -2993,16 +3123,13 @@ class FactoryMainWindow(QMainWindow):
             self.feedback_read_label,
             "success" if self._motors_discovered else "warning",
         )
-        self.can_connect_button.setEnabled(
-            self._configured and not self._can_connected
-        )
+        self.can_connect_button.setEnabled(self._configured and not self._can_connected)
         self.discover_button.setEnabled(
-            self._configured
-            and self._can_connected
-            and not self._motors_discovered
+            self._configured and self._can_connected and not self._motors_discovered
         )
         self.enable_motors_button.setEnabled(
             self._motors_discovered and not self._motors_enabled
+            and not self._motor_fault_reset_pending
         )
         self.disconnect_button.setEnabled(
             self._can_connected or self._motors_discovered
@@ -3015,29 +3142,81 @@ class FactoryMainWindow(QMainWindow):
         self.clear_config_button.setEnabled(
             self._configured and not self._configuration_pending
         )
-        self.preflight_button.setEnabled(
-            self._trajectory_imported
-            and self._motors_enabled
-            and state == "connected"
-        )
-        self.start_button.setEnabled(
-            self._motors_enabled and self._preflight_ok and state == "armed"
-        )
+        self._sync_preflight_controls(state)
         self.pause_button.setEnabled(state == "running")
         self.resume_button.setEnabled(state == "paused")
         self.stop_button.setEnabled(state in {"running", "paused"})
         self.reset_button.setEnabled(
             self._motors_discovered
-            and state in {"connected", "armed", "completed", "fault"}
+            and self._motors_enabled
+            and state in {"connected", "armed", "completed"}
+            and not self._default_return_pending and not self._preflight_pending
+        )
+        self.motor_fault_reset_button.setEnabled(
+            self._configured and self._can_connected and not self._motors_enabled
+            and not self._motor_fault_reset_pending
+            and state in {"disconnected", "connected", "fault", "armed", "completed"}
         )
         self.disable_button.setEnabled(self._motors_enabled)
+
+    @staticmethod
+    def _current_station_state(snapshot: Mapping[str, Any]) -> str:
+        station = snapshot.get("station")
+        if isinstance(station, Mapping) and station.get("state") is not None:
+            return str(station["state"]).lower()
+        return str(FactoryMainWindow._pick(
+            snapshot, "state", "playback_state", "status", default=""
+        )).lower()
+
+    def _sync_preflight_controls(self, state: str) -> None:
+        reason = ""
+        if self._default_return_pending:
+            reason = "正在回默认位，请等待回位完成。"
+        elif self._preflight_pending:
+            reason = "正在执行安全预检，请等待网关确认。"
+        elif not self._trajectory_imported:
+            reason = "尚未导入轨迹，请先选择轨迹。"
+        elif not self._motors_enabled:
+            reason = "电机尚未使能，请在样机配置页确认使能。"
+        elif state == "armed":
+            reason = "预检已通过，可以开始运行。"
+        elif state == "completed":
+            reason = "上一轮已完成，请导入下一条轨迹或回默认位后重新预检。"
+        elif state in {"running", "paused", "stopping"}:
+            reason = "老化运行尚未结束，当前不能执行预检。"
+        elif state == "fault":
+            reason = "样机处于故障状态，请先处理故障。"
+        elif state != "connected":
+            reason = f"等待样机就绪，当前状态：{state or '未知'}。"
+        self.preflight_button.setEnabled(not reason)
+        self.preflight_button.setToolTip(
+            reason or "根据当前轨迹和实时电机反馈执行安全预检。"
+        )
+        self.start_button.setEnabled(
+            self._motors_enabled and self._preflight_ok and state == "armed"
+            and not self._preflight_pending and not self._default_return_pending
+        )
+        if reason:
+            self.preflight_result.setText(reason)
+            color = "#116329" if self._preflight_ok else "#8a5a00"
+            self.preflight_result.setStyleSheet(f"color: {color}; font-weight: 700;")
+
+    def _preflight_finished(self) -> None:
+        self._preflight_pending = False
+        if self._last_snapshot:
+            self._sync_state(self._last_snapshot)
+
+    def _default_return_finished(self) -> None:
+        self._default_return_pending = False
+        if self._last_snapshot:
+            self._sync_state(self._last_snapshot)
 
     def _choose_config(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
             self, "选择电机配置", "", "YAML 配置 (*.yaml *.yml);;所有文件 (*)"
         )
         if path:
-            limb = self.limb.currentText().strip()
+            limb = self._selected_limb()
             if not limb:
                 QMessageBox.warning(self, "未选择部位", "请先在部位下拉框选择总成。")
                 return
@@ -3051,7 +3230,7 @@ class FactoryMainWindow(QMainWindow):
 
     def _preview_config(self) -> None:
         path = self.config_path.text().strip()
-        limb = self.limb.currentText().strip()
+        limb = self._selected_limb()
         if not path or not limb:
             QMessageBox.warning(self, "信息不完整", "请填写网关配置路径并选择部位。")
             return
@@ -3075,7 +3254,7 @@ class FactoryMainWindow(QMainWindow):
             return
         self._config_preview = data
         preview_limb = str(data.get("limb", "")).strip()
-        if preview_limb and preview_limb != self.limb.currentText().strip():
+        if preview_limb and preview_limb != self._selected_limb():
             self.limb.setCurrentText(preview_limb)
         config_path = str(data.get("config_path", "")).strip()
         if config_path:
@@ -3088,7 +3267,7 @@ class FactoryMainWindow(QMainWindow):
             "请检查参数并选择 CAN。"
         )
         self.config_summary_label.setText(
-            f"待应用：{preview_limb or self.limb.currentText().strip()} · "
+            f"待应用：{limb_label(preview_limb or self._selected_limb())} · "
             f"{len(motors)} 个电机 · {len(groups)} 个 CAN 总线组"
         )
         can_apply = not self._configuration_pending
@@ -3142,9 +3321,7 @@ class FactoryMainWindow(QMainWindow):
 
             interface = QComboBox()
             interface.addItems(interface_names)
-            preferred_interface = str(
-                group.get("default_interface", f"can{row}")
-            )
+            preferred_interface = str(group.get("default_interface", f"can{row}"))
             preferred_index = interface.findText(preferred_interface)
             if preferred_index >= 0:
                 interface.setCurrentIndex(preferred_index)
@@ -3297,7 +3474,7 @@ class FactoryMainWindow(QMainWindow):
         return result
 
     def _show_module_config_dialog(self) -> None:
-        self._activate_dialog_navigation(5)
+        self._activate_dialog_navigation(6)
         self.module_config_dialog.show()
         self.module_config_dialog.raise_()
         self.module_config_dialog.activateWindow()
@@ -3309,30 +3486,39 @@ class FactoryMainWindow(QMainWindow):
         )
         self._child_windows.append(window)
         window.destroyed.connect(
-            lambda _object=None, current=window: self._child_windows.remove(current)
-            if current in self._child_windows
-            else None
+            lambda _object=None, current=window: (
+                self._child_windows.remove(current)
+                if current in self._child_windows
+                else None
+            )
         )
         window.show()
 
+    def _selected_limb(self) -> str:
+        if not hasattr(self, "limb"):
+            return ""
+        data = self.limb.currentData()
+        if isinstance(data, str) and data:
+            return data
+        return self.limb.currentText().strip()
+
     def _suggest_config(self, limb: str) -> None:
-        root = "/etc/rp1-factory-hmi/stations"
         suggestions = {
-            "left_arm": f"{root}/left_arm_motors.yaml",
-            "right_arm": f"{root}/right_arm_motors.yaml",
-            "left_short_arm": f"{root}/left_short_arm_motors.yaml",
-            "right_short_arm": f"{root}/right_short_arm_motors.yaml",
-            "left_leg": f"{root}/left_leg_motors.yaml",
-            "right_leg": f"{root}/right_leg_motors.yaml",
-            "left_short_leg": f"{root}/left_short_leg_motors.yaml",
-            "right_short_leg": f"{root}/right_short_leg_motors.yaml",
-            "waist_hip": f"{root}/waist_hip_motors.yaml",
-            "biped_waist": f"{root}/biped_waist_motors.yaml",
-            "upper_body": f"{root}/upper_body_motors.yaml",
+            "left_arm": "left_arm_motors.yaml",
+            "right_arm": "right_arm_motors.yaml",
+            "left_short_arm": "left_short_arm_motors.yaml",
+            "right_short_arm": "right_short_arm_motors.yaml",
+            "left_leg": "left_leg_motors.yaml",
+            "right_leg": "right_leg_motors.yaml",
+            "left_short_leg": "left_short_leg_motors.yaml",
+            "right_short_leg": "right_short_leg_motors.yaml",
+            "waist_hip": "waist_hip_motors.yaml",
+            "biped_waist": "biped_waist_motors.yaml",
+            "upper_body": "upper_body_motors.yaml",
         }
         current = self.config_path.text().strip()
-        if not current or current.startswith(f"{root}/"):
-            self.config_path.setText(suggestions.get(limb, current))
+        if not current or current.startswith("/etc/rp1-factory-hmi/") or (not Path(current).is_absolute() and current in {value.lstrip("/") for value in suggestions.values()}):
+            self.config_path.setText(suggestions.get(limb, current).lstrip("/"))
             self.config_path.setCursorPosition(0)
         if self._config_preview and self._config_preview.get("limb") != limb:
             self._config_preview = {}
@@ -3342,9 +3528,8 @@ class FactoryMainWindow(QMainWindow):
                 self.config_validation_label.setText(
                     "部位已改变，请重新导入或读取 YAML。"
                 )
-                self.config_summary_label.setText(
-                    f"待应用：{limb} · 参数尚未载入"
-                )
+                self.config_summary_label.setText(f"待应用：{limb} · 参数尚未载入")
+        self._refresh_case_choices()
         self.configure_button.setText(
             "重新应用模块"
             if self._active_limb and limb == self._active_limb
@@ -3358,9 +3543,11 @@ class FactoryMainWindow(QMainWindow):
     def _configure(self) -> None:
         config_path = self.config_path.text().strip()
         robot_id = self.robot_id.text().strip()
-        limb = self.limb.currentText().strip()
+        limb = self._selected_limb()
         if not config_path or not robot_id or not limb:
-            QMessageBox.warning(self, "信息不完整", "请选择配置，并填写总成和样机编号。")
+            QMessageBox.warning(
+                self, "信息不完整", "请选择配置，并填写总成和样机编号。"
+            )
             return
         if not self._config_preview:
             QMessageBox.warning(
@@ -3378,8 +3565,7 @@ class FactoryMainWindow(QMainWindow):
                 f"当前生效模块为 {self._active_limb or '未知'}，待应用模块为 "
                 f"{limb}。\n\n切换会立即停止运动、软件失能、断开电机和 CAN，"
                 "并清除旧轨迹。确认继续吗？",
-                QMessageBox.StandardButton.Yes
-                | QMessageBox.StandardButton.Cancel,
+                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
                 QMessageBox.StandardButton.Cancel,
             )
             if answer != QMessageBox.StandardButton.Yes:
@@ -3433,12 +3619,12 @@ class FactoryMainWindow(QMainWindow):
         bindings = self._bus_bindings_from_table()
         interfaces = ", ".join(str(item["interface"]) for item in bindings)
         self.config_summary_label.setText(
-            f"{self.limb.currentText().strip()} · "
+            f"{limb_label(self._selected_limb())} · "
             f"{self.config_motor_table.rowCount()} 个电机 · {interfaces} · 已应用"
         )
         self.module_config_dialog.accept()
         self.setWindowTitle(
-            f"可靠性测试上位机 - {self.limb.currentText().strip()} - {interfaces}"
+            f"可靠性测试上位机 - {limb_label(self._selected_limb())} - {interfaces}"
         )
         data = dict(payload) if isinstance(payload, Mapping) else {}
         result = data.get("result")
@@ -3470,8 +3656,7 @@ class FactoryMainWindow(QMainWindow):
         answer = QMessageBox.question(
             self,
             "确认清除当前配置",
-            "这会立即停止运动、软件失能、断开电机和 CAN，并清除当前轨迹。"
-            "确认继续吗？",
+            "这会立即停止运动、软件失能、断开电机和 CAN，并清除当前轨迹。确认继续吗？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
@@ -3506,7 +3691,7 @@ class FactoryMainWindow(QMainWindow):
             self._render_snapshot(data)
 
     def _choose_trajectory(self) -> None:
-        selected_limb = self.limb.currentText().strip()
+        selected_limb = self._selected_limb()
         if not self._configured or self._active_limb != selected_limb:
             QMessageBox.warning(
                 self,
@@ -3546,18 +3731,26 @@ class FactoryMainWindow(QMainWindow):
         warnings: list[Any] = []
         if isinstance(preflight, Mapping):
             raw_warnings = preflight.get("warnings", [])
-            warnings = raw_warnings if isinstance(raw_warnings, list) else [raw_warnings]
+            warnings = (
+                raw_warnings if isinstance(raw_warnings, list) else [raw_warnings]
+            )
         sha = self._pick(data, "sha256", "hash")
         frames = self._pick(data, "frames", "frame_count")
         duration = self._pick(data, "duration", "duration_s")
         max_speed = self._pick(data, "max_speed", "max_speed_rad_s", default=None)
         if max_speed is None and isinstance(preflight, Mapping):
             max_speed = self._pick(preflight, "max_velocity_rad_s")
-        violation_text = "无" if not violations else "\n  • " + "\n  • ".join(
-            self._format_violation(item) for item in violations
+        violation_text = (
+            "无"
+            if not violations
+            else "\n  • "
+            + "\n  • ".join(self._format_violation(item) for item in violations)
         )
-        warning_text = "无" if not warnings else "\n  • " + "\n  • ".join(
-            self._format_violation(item) for item in warnings
+        warning_text = (
+            "无"
+            if not warnings
+            else "\n  • "
+            + "\n  • ".join(self._format_violation(item) for item in warnings)
         )
         self.trajectory_info.setText(
             f"SHA-256：{sha}\n帧数：{frames}\n时长：{duration} s\n"
@@ -3565,7 +3758,11 @@ class FactoryMainWindow(QMainWindow):
             f"预检提示：{warning_text}"
         )
         self.preflight_result.setText("轨迹已解析，请执行预检确认。")
-        self.preflight_button.setEnabled(self._motors_enabled)
+        snapshot = payload.get("snapshot") if isinstance(payload, Mapping) else None
+        if isinstance(snapshot, Mapping):
+            self._render_snapshot(dict(snapshot))
+        else:
+            self._sync_preflight_controls(self._current_station_state(self._last_snapshot))
 
     @staticmethod
     def _format_violation(item: Any) -> str:
@@ -3578,6 +3775,13 @@ class FactoryMainWindow(QMainWindow):
         return str(item)
 
     def _confirm_preflight(self) -> None:
+        if self._preflight_pending or self._default_return_pending:
+            return
+        current_state = self._current_station_state(self._last_snapshot)
+        if (not self._trajectory_imported or not self._motors_enabled
+                or current_state not in {"connected", "armed"}):
+            self._sync_preflight_controls(current_state)
+            return
         violations = self._last_trajectory.get(
             "preflight_violations",
             self._last_trajectory.get("violations", []),
@@ -3594,37 +3798,28 @@ class FactoryMainWindow(QMainWindow):
                 self, "预检不通过", "轨迹存在预检违规，禁止连接和启动。"
             )
             return
-        station = self._last_snapshot.get("station")
-        current_state = str(
-            station.get("state", "")
-            if isinstance(station, Mapping)
-            else self._last_snapshot.get("state", "")
-        ).lower()
         if current_state == "armed":
             self._preflight_ok = True
             self.preflight_result.setText("✓ 预检通过，当前已经处于 Armed 状态。")
-            self.preflight_result.setStyleSheet(
-                "color: #116329; font-weight: 700;"
-            )
+            self.preflight_result.setStyleSheet("color: #116329; font-weight: 700;")
             self.preflight_button.setEnabled(False)
             self.start_button.setEnabled(True)
             return
         self._preflight_ok = False
-        self.preflight_result.setText("✓ 预检通过，正在进入 Armed 状态。")
-        self.preflight_result.setStyleSheet("color: #116329; font-weight: 700;")
+        self._preflight_pending = True
+        self.preflight_result.setText("正在执行实时安全预检，等待网关确认…")
+        self.preflight_result.setStyleSheet("color: #8a5a00; font-weight: 700;")
         self.preflight_button.setEnabled(False)
+        self.start_button.setEnabled(False)
         self._run_rest(
             "进入 Armed",
             self.client.arm,
             self._armed_ok,
-            on_finished=lambda: self.preflight_button.setEnabled(
-                self._trajectory_imported
-                and self._motors_enabled
-                and not self._preflight_ok
-            ),
+            on_finished=self._preflight_finished,
         )
 
     def _armed_ok(self, payload: Any) -> None:
+        self._preflight_pending = False
         self._preflight_ok = True
         self._preflight_recheck_after_reset = False
         self.preflight_result.setText("✓ 预检通过，已进入 Armed 状态。")
@@ -3703,9 +3898,7 @@ class FactoryMainWindow(QMainWindow):
         self.enable_motors_button.setEnabled(False)
         self._run_rest(
             "确认并使能电机",
-            lambda: self.client.enable_motors(
-                physical_estop_confirmed=True
-            ),
+            lambda: self.client.enable_motors(physical_estop_confirmed=True),
             self._motors_enabled_ok,
             on_finished=lambda: self.enable_motors_button.setEnabled(
                 self._motors_discovered and not self._motors_enabled
@@ -3749,6 +3942,7 @@ class FactoryMainWindow(QMainWindow):
         self.enable_motors_button.setEnabled(False)
         self.disconnect_button.setEnabled(False)
         self.start_button.setEnabled(False)
+        self.motor_fault_reset_button.setEnabled(False)
         for button in (
             self.pause_button,
             self.resume_button,
@@ -3842,9 +4036,7 @@ class FactoryMainWindow(QMainWindow):
             return
         for row, value in enumerate(positions):
             target = self.manual_joint_table.cellWidget(row, 3)
-            if isinstance(target, QDoubleSpinBox) and isinstance(
-                value, (int, float)
-            ):
+            if isinstance(target, QDoubleSpinBox) and isinstance(value, (int, float)):
                 target.blockSignals(True)
                 target.setValue(math.degrees(float(value)))
                 target.blockSignals(False)
@@ -3926,11 +4118,7 @@ class FactoryMainWindow(QMainWindow):
 
     def _save_current_csv(self) -> None:
         playback = self._last_snapshot.get("playback")
-        recording = (
-            playback.get("recording")
-            if isinstance(playback, Mapping)
-            else None
-        )
+        recording = playback.get("recording") if isinstance(playback, Mapping) else None
         filename = (
             str(recording.get("filename", "factory_record.csv"))
             if isinstance(recording, Mapping)
@@ -3955,24 +4143,190 @@ class FactoryMainWindow(QMainWindow):
             on_finished=lambda: self.save_csv_button.setEnabled(True),
         )
 
+    def _refresh_local_bench(self) -> None:
+        self._run_rest(
+            "读取本机台架",
+            self.client.platform_bench,
+            self._local_bench_received,
+            quiet=True,
+        )
+
+    def _local_bench_received(self, payload: Any) -> None:
+        result = payload.get("result", payload) if isinstance(payload, Mapping) else {}
+        code = str(result.get("bench_code") or "") if isinstance(result, Mapping) else ""
+        if code and not self.platform_station_id.text().strip():
+            self.platform_station_id.setText(code)
+
+    def _save_local_bench(self) -> None:
+        code = self.platform_station_id.text().strip()
+        if code and not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", code):
+            return
+        self._run_rest(
+            "保存本机台架",
+            lambda: self.client.set_platform_bench(code),
+            lambda _payload: None,
+            quiet=True,
+        )
+
     def _platform_login(self) -> None:
         username = self.platform_username.text().strip()
         password = self.platform_password.text()
-        station_id = self.platform_station_id.text().strip() or None
         if not username or not password:
-            QMessageBox.warning(self, "信息不完整", "请输入工位操作员账号和密码。")
+            QMessageBox.warning(self, "信息不完整", "请输入操作员账号和密码。")
             return
+        self._save_local_bench()
         self.platform_login_button.setEnabled(False)
         self._run_rest(
             "登录测试平台",
             lambda: self.client.platform_login(
                 username,
                 password,
-                station_id=station_id,
             ),
             self._platform_login_ok,
             on_finished=lambda: self.platform_login_button.setEnabled(True),
         )
+
+    def _refresh_platform_options(self) -> None:
+        self._run_rest(
+            "加载平台测试选项",
+            self.client.platform_options,
+            self._platform_options_received,
+            quiet=True,
+        )
+
+    def _render_platform_presence(self, platform: Any) -> None:
+        if not isinstance(platform, Mapping):
+            return
+        operator = str(platform.get("operator") or "")
+        self._platform_operator = operator
+        self.platform_logout_button.setEnabled(bool(operator))
+        presence = platform.get("presence")
+        if not operator:
+            label = "平台账号：未登录"
+        elif isinstance(presence, Mapping):
+            status = "监控在线" if presence.get("online") else "监控未连接，请检查网络或重新登录"
+            label = f"平台账号：{operator}（{status}）"
+        else:
+            label = f"平台账号：{operator}（已登录）"
+        self.platform_identity_label.setText(label)
+
+    def _platform_logout(self) -> None:
+        self.platform_logout_button.setEnabled(False)
+        self._run_rest(
+            "退出测试平台",
+            self.client.platform_logout,
+            lambda _payload: self._render_platform_presence({"operator": ""}),
+            on_finished=lambda: (
+                self.platform_logout_button.setEnabled(bool(self._platform_operator)),
+                self._refresh_platform_options(),
+            ),
+        )
+
+    def _platform_options_received(self, payload: Any) -> None:
+        result = payload.get("result", payload) if isinstance(payload, Mapping) else {}
+        if not isinstance(result, Mapping):
+            return
+        profiles = result.get("profiles")
+        items = [dict(raw) for raw in profiles if isinstance(raw, Mapping)] if isinstance(profiles, list) else []
+        self._platform_profiles = items
+        self._platform_stations = [dict(item) for item in result.get("stations", []) if isinstance(item, Mapping)]
+        self._refresh_case_choices(result)
+
+    def _refresh_case_choices(self, result: Mapping[str, Any] | None = None) -> None:
+        if not hasattr(self, "platform_case_code"):
+            return
+        limb = self._selected_limb() if hasattr(self, "limb") else ""
+        previous = self.platform_case_code.currentData()
+        visible = [profile for profile in self._platform_profiles if profile_matches_limb(profile, limb)]
+        codes: list[str] = []
+        seen: set[str] = set()
+        ready_count = 0
+        for profile in visible:
+            ready_count += int(bool(profile.get("ready")))
+            code = str(profile.get("case_code") or profile.get("test_case_id") or "").strip()
+            if code and code not in seen:
+                seen.add(code)
+                codes.append(code)
+        self.platform_case_code.blockSignals(True)
+        self.platform_case_code.clear()
+        self.platform_case_code.addItem("请选择用例编号", None)
+        for code in codes:
+            self.platform_case_code.addItem(code, code)
+        self.platform_case_code.addItem("其他", OTHER_CASE)
+        restore = self.platform_case_code.findData(previous) if previous else -1
+        if restore >= 0:
+            self.platform_case_code.setCurrentIndex(restore)
+        self.platform_case_code.blockSignals(False)
+        self._platform_case_changed(self.platform_case_code.currentIndex())
+        if not hasattr(self, "platform_context_status"):
+            return
+        mode = str((result or {}).get("mode") or "")
+        error = str((result or {}).get("context_error") or "")
+        if hasattr(self, "submit_review_button"):
+            self.submit_review_button.setText("提交审批")
+        if error:
+            status = f"用例加载失败：{error}"
+        elif not self._platform_profiles:
+            status = "请选择用例编号；没有对应用例时选其他"
+        else:
+            shown_limb = limb_label(limb) if limb else "未选总成"
+            status = f"总成 {shown_limb}；用例 {len(codes)}；可用 {ready_count}/{len(visible)}"
+            if mode:
+                status = f"接口模式：{mode}；{status}"
+        self.platform_context_status.setText(status)
+
+    def _platform_case_changed(self, _index: int) -> None:
+        code = self.platform_case_code.currentData()
+        limb = self._selected_limb() if hasattr(self, "limb") else ""
+        if code == OTHER_CASE:
+            self.platform_test_profile.blockSignals(True)
+            self.platform_test_profile.clear()
+            self.platform_test_profile.addItem("其他用例不绑定平台样品", None)
+            self.platform_test_profile.setEnabled(False)
+            self.platform_test_profile.blockSignals(False)
+            self.platform_context_status.setText("已选其他，必须填写临时名称。核实提交后归档到待归类区，补齐正式用例后送审。")
+            return
+        self.platform_test_profile.setEnabled(True)
+        matches = [
+            profile for profile in self._platform_profiles
+            if profile_matches_limb(profile, limb)
+            and str(profile.get("case_code") or profile.get("test_case_id") or "") == code
+        ] if code else []
+        self.platform_test_profile.blockSignals(True)
+        self.platform_test_profile.clear()
+        self.platform_test_profile.addItem("未选择（仅本地保存）", None)
+        for profile in matches:
+            suffix = "" if profile.get("ready") else " [上下文不完整]"
+            self.platform_test_profile.addItem(
+                f"{profile.get('sample_id') or profile.get('asset_code') or '样品'} · "
+                f"{profile.get('station_code') or profile.get('bench_id') or '工位'}{suffix}",
+                profile,
+            )
+        if len(matches) == 1:
+            self.platform_test_profile.setCurrentIndex(1)
+        self.platform_test_profile.blockSignals(False)
+        stages = matches[0].get("stages") if len(matches) == 1 else None
+        stage_items = stages if isinstance(stages, list) and stages else [
+            {"sequence_no": 1, "stage_name": "测试阶段1"}
+        ]
+        self.platform_stage.blockSignals(True)
+        self.platform_stage.clear()
+        for stage in stage_items:
+            if not isinstance(stage, Mapping):
+                continue
+            name = str(stage.get("stage_name") or "测试阶段1")
+            self.platform_stage.addItem(name, {"sequence_no": int(stage.get("sequence_no") or 1), "stage_name": name})
+        if self.platform_stage.count() == 0:
+            self.platform_stage.addItem("测试阶段1", {"sequence_no": 1, "stage_name": "测试阶段1"})
+        self.platform_stage.blockSignals(False)
+        self._platform_profile_changed(self.platform_test_profile.currentIndex())
+
+    def _platform_profile_changed(self, _index: int) -> None:
+        profile = self.platform_test_profile.currentData()
+        sample = str(profile.get("sample_id") or "") if isinstance(profile, Mapping) else ""
+        self.robot_id.setReadOnly(bool(sample))
+        if sample:
+            self.robot_id.setText(sample)
 
     def _platform_login_ok(self, payload: Any) -> None:
         result = payload.get("result", payload) if isinstance(payload, Mapping) else {}
@@ -3983,8 +4337,10 @@ class FactoryMainWindow(QMainWindow):
         )
         self._platform_operator = operator
         self.platform_password.clear()
-        self.platform_identity_label.setText(f"平台账号：{operator}（认证中/已连接）")
+        self.platform_identity_label.setText(f"平台账号：{operator}（已登录）")
+        self.platform_logout_button.setEnabled(True)
         self.statusBar().showMessage("平台登录信息仅保存在网关内存中。", 8000)
+        self._refresh_platform_options()
         self._refresh_execution_history()
 
     def _refresh_execution_history(self) -> None:
@@ -4012,11 +4368,16 @@ class FactoryMainWindow(QMainWindow):
                 "validating": "平台处理中",
                 "pending_review": "待审批",
                 "approved": "已批准",
+                "uploaded": "平台已接收",
                 "rejected": "已拒绝",
                 "sync_failed": "同步失败",
+                "awaiting_classification": "已归档／待归类",
+                "archived": "已归档",
+                "needs_verification": "需要重新核实",
+                "processing_failed": "解析失败（可显式重试）",
             }.get(sync_state, sync_state)
             values = (
-                item.get("test_id", ""),
+                item.get("execution_code") or item.get("test_id", ""),
                 item.get("sample_id", ""),
                 item.get("verdict", ""),
                 sync_label,
@@ -4025,6 +4386,15 @@ class FactoryMainWindow(QMainWindow):
             )
             for column, value in enumerate(values):
                 table.setItem(row, column, QTableWidgetItem(str(value)))
+            code_item = table.item(row, 0)
+            code_item.setToolTip(
+                ("平台正式单号" if item.get("execution_code_confirmed") else "审批前预编号；正式单号以批准发布回执为准")
+                + f"\n本地记录：{item.get('test_id', '')}"
+                if item.get("execution_code") else f"本地记录：{item.get('test_id', '')}"
+            )
+            if item.get("test_id") == self.test_id.property("record_id"):
+                self.test_id.setText(str(item.get("execution_code") or item.get("test_id") or ""))
+                self.test_id.setToolTip(code_item.toolTip())
         self.statusBar().showMessage(
             f"执行记录已刷新，共 {len(self._execution_history)} 条。", 4000
         )
@@ -4033,7 +4403,7 @@ class FactoryMainWindow(QMainWindow):
         row = self.execution_history_table.currentRow()
         if 0 <= row < len(self._execution_history):
             return self._execution_history[row]
-        test_id = self.test_id.text().strip()
+        test_id = str(self.test_id.property("record_id") or self.test_id.text()).strip()
         return {"test_id": test_id} if test_id else None
 
     def _selected_test_id(self) -> str:
@@ -4064,6 +4434,34 @@ class FactoryMainWindow(QMainWindow):
             on_finished=lambda: self.export_bundle_button.setEnabled(True),
         )
 
+    def _import_history_csv(self) -> None:
+        paths, _ = QFileDialog.getOpenFileNames(self, "选择本机历史采集文件（仅补录，不上传）", "", "CSV (*.csv)")
+        if not paths:
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("历史 CSV 补录信息")
+        form = QFormLayout(dialog)
+        name, actual_object, tester = QLineEdit(), QLineEdit(), QLineEdit()
+        station = QLineEdit(self.platform_station_id.text().strip().upper())
+        form.addRow(QLabel(f"已选择 {len(paths)} 个文件。信息只用于本批本地补录；每条记录仍需核实后提交。"))
+        form.addRow("测试名称（必填）", name)
+        form.addRow("实际测试对象（必填）", actual_object)
+        form.addRow("实际测试人（必填）", tester)
+        form.addRow("工位（必填）", station)
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        metadata = {"test_name": name.text().strip(), "actual_object": actual_object.text().strip(),
+            "operator_id": tester.text().strip(), "bench_id": station.text().strip()}
+        if not all(metadata.values()):
+            QMessageBox.warning(self, "信息不完整", "必须填写测试名称、实际测试对象、实际测试人和工位。")
+            return
+        self._run_rest("补录历史 CSV", lambda: self.client.import_execution_history(paths, metadata),
+            lambda _result: self._submission_action_ok("历史记录已补录到本机。请选择记录核实并提交，缺少用例关联时进入待归类区。"))
+
     def _submit_execution(self) -> None:
         test_id = self._selected_test_id()
         if not test_id:
@@ -4071,21 +4469,131 @@ class FactoryMainWindow(QMainWindow):
             return
         self.submit_review_button.setEnabled(False)
         self._run_rest(
-            "提交审批",
-            lambda: self.client.submit_execution(test_id),
-            lambda _payload: self._submission_action_ok("已加入待上传队列"),
+            "读取本机摘要",
+            lambda: self.client.execution_summary(test_id),
+            lambda payload: self._open_submission_review(test_id, payload),
             on_finished=lambda: self.submit_review_button.setEnabled(True),
         )
 
+    def _open_submission_review(self, test_id: str, payload: Any) -> None:
+        summary = payload.get("result", payload) if isinstance(payload, Mapping) else {}
+        if not isinstance(summary, Mapping) or "timing" not in summary:
+            QMessageBox.warning(self, "摘要不可用", "本机摘要未读取，不能提交。请先重建报告。")
+            return
+        dialog = QDialog(self)
+        dialog.setWindowTitle("核实并提交")
+        dialog.resize(720, 560)
+        form = QFormLayout(dialog)
+        selected = next((item for item in self._execution_history if item.get("test_id") == test_id), {})
+        tester = QLineEdit(str(selected.get("operator_id") or ""))
+        tester.setPlaceholderText("实际执行测试的人，与当前提交账号分开保存")
+        bench = QComboBox()
+        bench.addItem("请选择有效工位", None)
+        for station in self._platform_stations:
+            if not station.get("active", True):
+                continue
+            bench.addItem(str(station.get("code") or station.get("name") or station.get("id")), str(station.get("id")))
+        expected_station = str(selected.get("station_id") or "")
+        expected_code = str(selected.get("bench_id") or self.platform_station_id.text()).strip().upper()
+        for index in range(1, bench.count()):
+            if bench.itemData(index) == expected_station or bench.itemText(index).upper() == expected_code:
+                bench.setCurrentIndex(index)
+                break
+        name = QLineEdit(str(selected.get("test_name") or ""))
+        actual_object = QLineEdit(str(selected.get("actual_object") or selected.get("sample_id") or ""))
+        outcome = QComboBox()
+        outcome.addItems(("请选择人工结论", "成功", "失败", "中止"))
+        data = QTextEdit(measured_lines(summary or None))
+        data.setReadOnly(True)
+        analysis = QTextEdit(analysis_text(summary))
+        analysis.setReadOnly(True)
+        notes = QTextEdit()
+        notes.setPlaceholderText("必填：本次测试的相关备注，无补充事项请填写“无”")
+        discrepancy = QTextEdit()
+        discrepancy.setPlaceholderText("人工结论与自动判定不一致时必填；未配置判据时说明人工判断依据")
+
+        def refresh_analysis() -> None:
+            try:
+                package = review_package(
+                    tester=tester.text(),
+                    bench=bench.currentText(), station_id=str(bench.currentData() or ""),
+                    outcome=outcome.currentText(),
+                    notes=notes.toPlainText(),
+                    summary=summary or None,
+                    discrepancy_reason=discrepancy.toPlainText(), test_name=name.text(), actual_object=actual_object.text(),
+                )
+            except ValueError:
+                analysis.setPlainText(analysis_text(summary))
+                return
+            analysis.setPlainText(package["analysis"])
+
+        tester.textChanged.connect(lambda _text: refresh_analysis())
+        bench.currentIndexChanged.connect(lambda _index: refresh_analysis())
+        outcome.currentTextChanged.connect(lambda _text: refresh_analysis())
+        notes.textChanged.connect(refresh_analysis)
+        refresh_analysis()
+        form.addRow("测试人", tester)
+        form.addRow("工位", bench)
+        form.addRow("测试名称", name)
+        form.addRow("实际测试对象", actual_object)
+        form.addRow("结果", outcome)
+        form.addRow("测得数据", data)
+        form.addRow("测试结果分析", analysis)
+        form.addRow("测试员记录", notes)
+        form.addRow("差异原因", discrepancy)
+        buttons = QDialogButtonBox(
+            QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
+        )
+        ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+        if ok_button is not None:
+            ok_button.setText("确认提交")
+        buttons.accepted.connect(dialog.accept)
+        buttons.rejected.connect(dialog.reject)
+        form.addRow(buttons)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return
+        try:
+            package = review_package(
+                tester=tester.text(),
+                bench=bench.currentText(), station_id=str(bench.currentData() or ""),
+                outcome=outcome.currentText(),
+                notes=notes.toPlainText(),
+                summary=summary or None,
+                discrepancy_reason=discrepancy.toPlainText(), test_name=name.text(), actual_object=actual_object.text(),
+            )
+        except ValueError as exc:
+            QMessageBox.warning(self, "核实信息不完整", str(exc))
+            return
+        self._run_rest(
+            "提交核实",
+            lambda: self.client.submit_execution(
+                test_id,
+                package["submission_reason"],
+                verified_status=package["verified_status"],
+                operator_summary=package["operator_summary"],
+                review=package,
+            ),
+            lambda result: self._submission_action_ok(self._review_saved_message(result)),
+        )
+
+    @staticmethod
+    def _review_saved_message(payload: Any) -> str:
+        result = payload.get("result", payload) if isinstance(payload, Mapping) else {}
+        return "核实版本已保存，原始 CSV 已加入归档队列。待归类或批准前不进入正式统计；工位保留本地副本。"
+
     def _retry_execution(self) -> None:
+        selected = self._selected_execution()
+        if selected and selected.get("sync_state") in {"rejected", "needs_verification"}:
+            self._submit_execution()
+            return
         test_id = self._selected_test_id()
         if not test_id:
             QMessageBox.warning(self, "未选择记录", "请选择一条执行记录。")
             return
         self._run_rest(
-            "重试上传",
+            "重试归档",
             lambda: self.client.retry_execution(test_id),
-            lambda _payload: self._submission_action_ok("已重新加入上传队列"),
+            lambda _payload: self._submission_action_ok("已恢复归档队列，保留原始证据与核实版本"),
         )
 
     def _rebuild_execution(self) -> None:
@@ -4100,6 +4608,7 @@ class FactoryMainWindow(QMainWindow):
         )
 
     def _submission_action_ok(self, message: str) -> None:
+        self.submission_status_label.setText(message)
         self.statusBar().showMessage(message, 8000)
         self._refresh_execution_history()
 
@@ -4120,8 +4629,7 @@ class FactoryMainWindow(QMainWindow):
         answer = QMessageBox.question(
             self,
             "准备下一组老化",
-            "将清除当前轨迹和预检状态，保留样机配置、CAN 连接及位置保持。"
-            "确认继续吗？",
+            "将清除当前轨迹和预检状态，保留样机配置、CAN 连接及位置保持。确认继续吗？",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
@@ -4148,6 +4656,57 @@ class FactoryMainWindow(QMainWindow):
         if not robot_id:
             QMessageBox.warning(self, "信息不完整", "样机编号不能为空。")
             return
+        case_code = self.platform_case_code.currentData()
+        context = self.platform_test_profile.currentData()
+        context = dict(context) if isinstance(context, Mapping) and case_code != OTHER_CASE else {}
+        stage = self.platform_stage.currentData()
+        if context and isinstance(stage, Mapping):
+            context["stage_code"] = str(stage.get("sequence_no") or 1)
+            context["stage_name"] = str(stage.get("stage_name") or "测试阶段1")
+        if context and not bool(context.get("ready")):
+            missing = "、".join(str(item) for item in context.get("missing") or [])
+            QMessageBox.warning(
+                self,
+                "平台上下文不完整",
+                f"当前测试上下文缺少：{missing}。请由平台管理员填写真实 UUID，"
+                "本机不会虚构数据库标识。",
+            )
+            return
+        decision = start_decision(
+            saved_bench=self.platform_station_id.text(),
+            context_bench=str(context.get("bench_id") or ""),
+            case_code=None if case_code is None else str(case_code),
+            has_context=bool(context),
+        )
+        if decision == "need_case":
+            QMessageBox.warning(self, "未选择用例", "请先选择用例编号。没有对应用例时选其他。")
+            return
+        if decision == "need_sample":
+            QMessageBox.warning(self, "未选择样品", "请选择该用例对应的样品和台架。")
+            return
+        temporary_name = ""
+        if decision == "local_other":
+            temporary_name, accepted = QInputDialog.getText(self, "其他用例", "临时测试名称（必填，后续可在后台归入正式用例）：")
+            temporary_name = temporary_name.strip()
+            if not accepted:
+                return
+            if not temporary_name:
+                QMessageBox.warning(self, "缺少测试名称", "其他用例必须填写临时测试名称。")
+                return
+        elif decision == "need_bench":
+            QMessageBox.warning(self, "未填写台架", "请先在顶栏填写本机台架，例如 a10。")
+            return
+        elif decision == "bench_mismatch":
+            QMessageBox.warning(
+                self,
+                "台架不一致",
+                f"本机台架是 {self.platform_station_id.text().strip().upper()}，"
+                f"所选用例的台架是 {str(context.get('bench_id') or '').upper()}。"
+                "两边必须是同一个台架。",
+            )
+            return
+        self._save_local_bench()
+        # Online monitoring also supports local-only runs without an upload profile.
         use_duration = self.duration_mode.isChecked()
         self._run_rest(
             "开始运行",
@@ -4155,16 +4714,31 @@ class FactoryMainWindow(QMainWindow):
                 speed=self.speed.value(),
                 loop=True,
                 cycles=0 if use_duration else self.cycles.value(),
-                duration_hours=(
-                    self.duration_hours.value() if use_duration else None
-                ),
+                duration_hours=(self.duration_hours.value() if use_duration else None),
                 record=self.record.isChecked(),
+                recording_scope="platform" if context else "local",
                 record_rate_hz=self.record_rate_hz.value(),
                 test_id=None,
                 robot_id=robot_id,
-                test_case_id=self._active_limb or self.limb.currentText().strip(),
-                station_id=self.platform_station_id.text().strip() or None,
+                campaign_id=context.get("campaign_id"),
+                cycle_id=context.get("cycle_id"),
+                segment_id=context.get("segment_id"),
+                asset_id=context.get("asset_id"),
+                configuration_id=context.get("configuration_id"),
+                test_case_version_id=context.get("test_case_version_id"),
+                test_case_id=(
+                    context.get("test_case_id")
+                    if context
+                    else (OTHER_CASE if decision == "local_other" else self._active_limb or self._selected_limb())
+                ),
+                test_case_version=context.get("test_case_version") or context.get("version"),
+                test_name=temporary_name or str(context.get("test_case_id") or ""),
+                bench_id=context.get("bench_id") or self.platform_station_id.text().strip().upper(),
+                station_id=context.get("station_id") or None,
                 operator_id=self._platform_operator or None,
+                stage_code=context.get("stage_code"),
+                stage_name=context.get("stage_name"),
+                subject_map=context.get("subject_map") or {},
             ),
             self._playback_started,
         )
@@ -4173,9 +4747,17 @@ class FactoryMainWindow(QMainWindow):
         result = payload.get("result", payload) if isinstance(payload, Mapping) else {}
         snapshot = result.get("snapshot", result) if isinstance(result, Mapping) else {}
         playback = snapshot.get("playback", {}) if isinstance(snapshot, Mapping) else {}
-        test_id = str(playback.get("test_id") or "") if isinstance(playback, Mapping) else ""
+        test_id = (
+            str(playback.get("test_id") or "") if isinstance(playback, Mapping) else ""
+        )
         if test_id:
-            self.test_id.setText(test_id)
+            self.test_id.setProperty("record_id", test_id)
+            execution_code = str(playback.get("execution_code") or "")
+            self.test_id.setText(execution_code or test_id)
+            self.test_id.setToolTip(
+                f"审批前预编号；正式单号以批准发布回执为准\n本地记录：{test_id}"
+                if execution_code else f"本地记录：{test_id}"
+            )
         if isinstance(snapshot, Mapping):
             self._render_snapshot(dict(snapshot))
 
@@ -4192,30 +4774,67 @@ class FactoryMainWindow(QMainWindow):
             self,
             "确认回默认位",
             "确认测试区域无人、机构运动路径无干涉？\n"
-            "机械臂将低速回到 YAML 中配置的默认位置。",
+            "机械臂将以半 KP 平滑回默认位 1 秒，再以正常 KP 保持 2 秒；KD 不变。",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
         if answer == QMessageBox.StandardButton.Yes:
             self._start_default_return(recheck=False)
 
+    def _reset_motor_fault(self) -> None:
+        if self._motor_fault_reset_pending:
+            return
+        answer = QMessageBox.question(
+            self,
+            "确认复位电机故障",
+            "确认已停止运动、完成现场故障检查，并已失能电机？\n"
+            "将重新建立通信、读取故障、发送清错并等待新反馈确认。\n"
+            "成功后保持失能，需要重新确认使能、导入轨迹和预检。",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Cancel,
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.motor_fault_reset_button.setEnabled(False)
+        self.enable_motors_button.setEnabled(False)
+        self._motor_fault_reset_pending = True
+        self._preflight_ok = False
+        self.preflight_result.setText("正在复位电机故障并等待新反馈确认…")
+        self._run_rest(
+            "复位电机故障", self.client.reset_motor_fault, self._motor_fault_reset_ok,
+            on_finished=lambda: setattr(self, "_motor_fault_reset_pending", False),
+        )
+
+    def _motor_fault_reset_ok(self, payload: Any) -> None:
+        self._motors_enabled = False
+        self._trajectory_imported = False
+        self._preflight_ok = False
+        if isinstance(payload, Mapping):
+            snapshot = payload.get("snapshot", payload)
+            if isinstance(snapshot, Mapping):
+                self._render_snapshot(dict(snapshot))
+        self.preflight_result.setText("电机故障复位已确认，保持失能。请重新确认使能、导入轨迹并预检。")
+        self.preflight_result.setStyleSheet("color: #116329; font-weight: 700;")
+
     def _start_default_return(self, *, recheck: bool) -> None:
+        if self._default_return_pending or self._preflight_pending:
+            return
+        self._default_return_pending = True
+        self._preflight_ok = False
+        self.start_button.setEnabled(False)
         self.reset_button.setEnabled(False)
         self.preflight_button.setEnabled(False)
-        self.preflight_result.setText("正在低速回默认位，请勿进入设备运动范围。")
-        self.preflight_result.setStyleSheet(
-            "color: #8a5a00; font-weight: 700;"
-        )
+        self.preflight_result.setText("回默认位：半 KP 1 秒 → 正常 KP 2 秒，请勿进入运动范围。")
+        self.preflight_result.setStyleSheet("color: #8a5a00; font-weight: 700;")
         self._run_rest(
             "回默认位",
             self.client.playback_reset,
             lambda payload: self._default_returned(payload, recheck=recheck),
-            on_finished=lambda: self.reset_button.setEnabled(
-                self._motors_discovered
-            ),
+            on_finished=self._default_return_finished,
         )
 
     def _default_returned(self, payload: Any, *, recheck: bool) -> None:
+        self._default_return_pending = False
         self._preflight_ok = False
         if isinstance(payload, Mapping):
             snapshot = payload.get("snapshot", payload)
@@ -4225,9 +4844,7 @@ class FactoryMainWindow(QMainWindow):
             "已回默认位并恢复位置保持。"
             + (" 正在重新执行安全预检…" if recheck else " 请执行安全预检。")
         )
-        self.preflight_result.setStyleSheet(
-            "color: #116329; font-weight: 700;"
-        )
+        self.preflight_result.setStyleSheet("color: #116329; font-weight: 700;")
         if recheck:
             self._preflight_recheck_after_reset = True
             QTimer.singleShot(0, self._confirm_preflight)
@@ -4276,9 +4893,7 @@ class FactoryMainWindow(QMainWindow):
         zeroing = data.get("zeroing")
         if isinstance(zeroing, Mapping):
             return dict(zeroing)
-        if "state" in data and (
-            "zeroed_indices" in data or "current_index" in data
-        ):
+        if "state" in data and ("zeroed_indices" in data or "current_index" in data):
             return data
         return None
 
@@ -4296,13 +4911,13 @@ class FactoryMainWindow(QMainWindow):
         current = zeroing.get("current_index")
         if state == "reading":
             if self._zero_selected_index != current:
-                self._zero_selected_index = int(current) if current is not None else None
+                self._zero_selected_index = (
+                    int(current) if current is not None else None
+                )
                 self._zero_selected_label = (
                     f"index {current}" if current is not None else "未知电机"
                 )
-            self.zero_motor_label.setText(
-                f"当前标零电机：{self._zero_selected_label}"
-            )
+            self.zero_motor_label.setText(f"当前标零电机：{self._zero_selected_label}")
             self.zero_status_label.setText(
                 "所选电机已解除控制。请将该电机移动到机械零位，"
                 "读取并核对当前位置后再确认标零。"
@@ -4317,9 +4932,7 @@ class FactoryMainWindow(QMainWindow):
             )
         elif state == "aborted":
             reason = zeroing.get("abort_reason") or "operator abort"
-            self.zero_status_label.setText(
-                f"本次标零已取消（{reason}）。"
-            )
+            self.zero_status_label.setText(f"本次标零已取消（{reason}）。")
         else:
             self.zero_status_label.setText("等待开始所选电机的标零。")
 
@@ -4368,8 +4981,7 @@ class FactoryMainWindow(QMainWindow):
                 "标零前会停止位置保持并失能全部电机，完成后保持失能。"
                 "请先可靠支撑机构，并确认所选关节已位于机械零位。"
             ),
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
         if answer != QMessageBox.StandardButton.Yes:
@@ -4394,8 +5006,7 @@ class FactoryMainWindow(QMainWindow):
                 "该操作不可撤销。系统会停止位置保持、失能全部电机并逐个写入零位，"
                 "完成后继续保持失能。请先可靠支撑整个机构，并确认每个关节均已在机械零位。"
             ),
-            QMessageBox.StandardButton.Yes
-            | QMessageBox.StandardButton.Cancel,
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.Cancel,
             QMessageBox.StandardButton.Cancel,
         )
         if answer != QMessageBox.StandardButton.Yes:
@@ -4450,9 +5061,7 @@ class FactoryMainWindow(QMainWindow):
         motor_index = self._zero_selected_index
         if motor_index is None:
             return
-        self.zero_motor_label.setText(
-            f"准备标零电机：{self._zero_selected_label}"
-        )
+        self.zero_motor_label.setText(f"准备标零电机：{self._zero_selected_label}")
         self.zero_status_label.setText("正在解除所选电机控制并准备标零…")
         self._zero_command(
             f"prepare motor {motor_index}",
@@ -4529,6 +5138,7 @@ class FactoryMainWindow(QMainWindow):
 
     def closeEvent(self, event: Any) -> None:
         self._lease_enabled = False
+        self.plc_page.stop()
         previous_timeout = self.client.timeout
         self.client.timeout = min(previous_timeout, 2.0)
         try:
@@ -4568,8 +5178,15 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    app = QApplication(list(sys.argv if argv is None else [sys.argv[0], *argv]))
-    app.setApplicationName("Factory Ageing HMI")
+    qt_args = list(sys.argv if argv is None else [sys.argv[0], *argv])
+    qt_args[0] = "rp1-test-hmi"
+    QApplication.setApplicationName("rp1-test-hmi")
+    app = QApplication(qt_args)
+    app.setApplicationDisplayName("rp1-test-hmi")
+    app.setDesktopFileName("rp1-test-hmi")
+    app_icon = Path(__file__).resolve().parent / "assets" / "rp1-factory-hmi.png"
+    if app_icon.is_file():
+        app.setWindowIcon(QIcon(str(app_icon)))
     window = FactoryMainWindow(
         args.gateway_url,
         operator_token=args.operator_token,

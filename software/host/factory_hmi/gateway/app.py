@@ -8,25 +8,41 @@ import re
 import shutil
 import sqlite3
 import threading
+from collections.abc import Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from fastapi import FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi import (
+    FastAPI,
+    Header,
+    HTTPException,
+    Request,
+    WebSocket,
+    WebSocketDisconnect,
+)
 from fastapi.responses import FileResponse, JSONResponse
 
+from factory_hmi.plc.service import PlcCabinetService, PlcControlDisabledError
+from factory_hmi.plc.coordination import PlcRequestConflict
 from factory_hmi.sync.outbox import Outbox
 
 from .lease import ControlLease, LeaseConflict
 from .schemas import (
+    BenchCodeRequest,
     CanConnectRequest,
     ConfigPreviewRequest,
     ConfigureRequest,
     EnableMotorsRequest,
     ExecutionActionRequest,
+    HistoryImportRequest,
     ManualMoveRequest,
     PlatformLoginRequest,
     PlaybackStartRequest,
+    PlcChannelRequest,
+    PlcOperatorRequest,
+    PlcSetpointRequest,
+    PlcStartRequest,
     TrajectoryImportRequest,
     ZeroConfirmRequest,
     ZeroMotorRequest,
@@ -59,18 +75,81 @@ def _json_result(result: Any) -> Any:
 class _PlatformCoordinator:
     """Own the one uploader allowed to consume the gateway-wide Outbox."""
 
-    def __init__(self, outbox: Outbox) -> None:
+    def __init__(
+        self,
+        outbox: Outbox,
+        *,
+        snapshot_provider: Callable[[], dict[str, Any]] | None = None,
+        on_execution: Callable[[str, str], None] | None = None,
+    ) -> None:
         self.outbox = outbox
         self._lock = threading.RLock()
         self._uploader: Any | None = None
         self._identity = ""
+        self._snapshot_provider = snapshot_provider
+        self._on_execution = on_execution
+        self._mode = (
+            os.environ.get("RP1_FACTORY_PLATFORM_MODE", "reliability_v1")
+            .strip()
+            .lower()
+        )
+        if self._mode not in {"legacy", "reliability_v1"}:
+            raise ValueError(
+                "RP1_FACTORY_PLATFORM_MODE must be legacy or reliability_v1"
+            )
 
     def snapshot(self) -> dict[str, Any]:
         with self._lock:
+            presence = getattr(self._uploader, "presence", None)
             return {
                 "operator": self._identity,
                 "uploader_running": self._uploader is not None,
+                "mode": self._mode,
+                "presence": presence.status() if presence else None,
             }
+
+    def submit(self, operation: Callable[[], Any], test_id: str) -> Any:
+        with self._lock:
+            if self._mode != "reliability_v1" or not self._identity:
+                raise ValueError("请先登录当前平台再核实归档测试数据。")
+            existing = self.outbox.get_by_test_id(test_id)
+            if existing and existing.submission_owner and existing.submission_owner != self._identity:
+                raise ValueError("此记录已绑定其他提交账号，请使用原账号处理。")
+            result = operation()
+            if isinstance(result, dict) and result.get("execution_uuid"):
+                self.outbox.update(result["execution_uuid"], submission_owner=self._identity)
+                result = self.outbox.get(result["execution_uuid"]).to_dict()
+            self.wake()
+            return result
+
+    def options(self) -> dict[str, Any]:
+        from factory_hmi.sync.reliability_platform import load_test_profiles
+        from factory_hmi.sync.uploader import PlatformError
+
+        path = os.environ.get("RP1_RELIABILITY_PROFILES", "").strip() or None
+        yaml_profiles = load_test_profiles(path)
+        live: list[dict[str, Any]] = []
+        context_error = ""
+        stations: list[dict[str, Any]] = []
+        with self._lock:
+            uploader = self._uploader
+            identity = self._identity
+        if uploader is not None and identity:
+            try:
+                live = uploader.context_profiles()
+                stations = uploader.station_options()
+            except PlatformError as exc:
+                context_error = str(exc)
+        live_keys = {str(item.get("key") or "") for item in live}
+        profiles = live + [
+            item for item in yaml_profiles if str(item.get("key") or "") not in live_keys
+        ]
+        return {
+            "mode": self._mode,
+            "profiles": profiles,
+            "context_error": context_error,
+            "stations": stations,
+        }
 
     def set_presence(self, payload: dict[str, Any]) -> None:
         with self._lock:
@@ -79,6 +158,34 @@ class _PlatformCoordinator:
             uploader.set_presence(payload)
 
     def login(self, request: PlatformLoginRequest) -> dict[str, Any]:
+        if self._mode == "reliability_v1":
+            from factory_hmi.sync.reliability_platform import (
+                reliability_worker_from_environment,
+            )
+
+            with self._lock:
+                if self._uploader is None:
+                    self.outbox.recover_interrupted()
+                    self._uploader = reliability_worker_from_environment(
+                        self.outbox,
+                        snapshot_provider=self._snapshot_provider,
+                        on_execution=self._on_execution,
+                    )
+                grant = self._uploader.authenticate(
+                    request.username,
+                    request.password,
+                )
+                self._uploader.start()
+                self._identity = str((grant.get("user") or {}).get("username") or request.username).strip()
+                self._uploader.wake()
+            return {
+                "operator": self._identity,
+                "station_id": request.station_id or "",
+                "status": "connected",
+                "mode": self._mode,
+                "expires_at": grant.get("expires_at", ""),
+            }
+
         from factory_hmi.sync.uploader import (
             PlatformClient,
             UploaderWorker,
@@ -86,8 +193,7 @@ class _PlatformCoordinator:
         )
 
         station_id = (
-            request.station_id
-            or os.environ.get("RP1_FACTORY_STATION_ID", "").strip()
+            request.station_id or os.environ.get("RP1_FACTORY_STATION_ID", "").strip()
         )
         if not station_id:
             raise RuntimeError("RP1_FACTORY_STATION_ID is not configured")
@@ -107,10 +213,7 @@ class _PlatformCoordinator:
             machine_token = "local-dev-machine-token-not-required"
 
         with self._lock:
-            if (
-                self._uploader is not None
-                and self._uploader.station_id != station_id
-            ):
+            if self._uploader is not None and self._uploader.station_id != station_id:
                 if self._identity:
                     raise RuntimeError(
                         "platform uploader is already logged in for "
@@ -142,6 +245,7 @@ class _PlatformCoordinator:
             "operator": self._identity,
             "station_id": station_id,
             "status": "connected",
+            "mode": self._mode,
             "expires_at": grant.get("expires_at", ""),
         }
 
@@ -185,20 +289,27 @@ class GatewayRuntime:
         self.status_rate_hz = float(status_rate_hz)
         self.repo_root = Path(__file__).resolve().parents[2]
         self.data_root = (
-            data_root
-            or Path(
-                os.environ.get(
-                    "RP1_FACTORY_DATA_ROOT",
-                    "/var/lib/rp1-factory-hmi",
+            (
+                data_root
+                or Path(
+                    os.environ.get(
+                        "RP1_FACTORY_DATA_ROOT",
+                        "/var/lib/rp1-factory-hmi",
+                    )
                 )
             )
-        ).expanduser().resolve()
+            .expanduser()
+            .resolve()
+        )
         self.trajectory_root = self.data_root / "trajectories"
         self.config_root = self.data_root / "configs"
         self._stop = threading.Event()
         self._lease_thread: threading.Thread | None = None
         self._expiry_callback = expiry_callback
         self._lease_guard = threading.RLock()
+        self._motion_epoch_guard = threading.Lock()
+        self._motion_epoch = 0
+        self._motion_interrupts_pending = 0
         self.outbox = outbox
         self._platform = platform
 
@@ -233,6 +344,8 @@ class GatewayRuntime:
             raise RuntimeError("controller snapshot must be a mapping")
         lease = self.lease.snapshot()
         value = dict(result)
+        if value.get("config_path"):
+            value["config_path"] = self._config_reference(Path(value["config_path"]))
         station = value.get("station")
         if "state" not in value and isinstance(station, dict):
             value["state"] = station.get("state")
@@ -283,11 +396,29 @@ class GatewayRuntime:
     def platform_logout(self) -> dict[str, Any]:
         return self._platform.logout()
 
-    def submit_execution(self, test_id: str, *, retry: bool = False) -> Any:
-        names = ("retry_submission",) if retry else ("submit_execution",)
-        result = self._invoke(names, test_id)
-        self._platform.wake()
-        return result
+    def submit_execution(
+        self,
+        test_id: str,
+        *,
+        retry: bool = False,
+        reason: str = "",
+        verified_status: str = "",
+        operator_summary: str = "",
+        review: dict[str, Any] | None = None,
+    ) -> Any:
+        if retry:
+            return self._platform.submit(lambda: self._invoke(("retry_submission",), test_id), test_id)
+        return self._platform.submit(
+            lambda: self._invoke(
+                ("submit_execution",),
+                test_id,
+                reason,
+                verified_status,
+                operator_summary,
+                review,
+            ),
+            test_id,
+        )
 
     def configure(self, request: ConfigureRequest) -> Any:
         config_path = self._allowed_config_path(request.config_path)
@@ -315,13 +446,33 @@ class GatewayRuntime:
 
         config_path = self._allowed_config_path(request.config_path)
         result = preview_station_config(request.limb, config_path)
-        result["config_path"] = str(config_path)
+        result["config_path"] = self._config_reference(config_path)
         return result
+
+    def _config_reference(self, path: Path) -> str:
+        """Expose portable YAML references while retaining resolved paths internally."""
+        resolved = path.expanduser().resolve()
+        if resolved.is_relative_to(self.config_root):
+            return "uploaded/" + resolved.relative_to(self.config_root).as_posix()
+        configured = os.environ.get("RP1_FACTORY_ALLOWED_CONFIG_ROOT", "").strip()
+        roots = (
+            tuple(Path(item).expanduser().resolve() for item in configured.split(os.pathsep) if item)
+            if configured else (self.repo_root / "scripts" / "config",)
+        )
+        for root in roots:
+            if resolved.is_relative_to(root):
+                return resolved.relative_to(root).as_posix()
+        return str(path)
 
     def _allowed_config_path(self, value: str) -> Path:
         uploaded = Path(value).expanduser()
+        if not uploaded.is_absolute() and uploaded.parts and uploaded.parts[0] == "uploaded":
+            uploaded = self.config_root.joinpath(*uploaded.parts[1:])
         if uploaded.is_absolute():
-            uploaded = uploaded.resolve(strict=True)
+            try:
+                uploaded = uploaded.resolve(strict=True)
+            except FileNotFoundError as exc:
+                raise HTTPException(status_code=404, detail="配置文件不存在，请选择有效的 YAML 文件或相对配置文件名") from exc
             if (
                 uploaded.suffix.lower() in {".yaml", ".yml"}
                 and self.config_root in uploaded.parents
@@ -371,7 +522,11 @@ class GatewayRuntime:
             "",
         ).strip()
         configured_roots = (
-            tuple(Path(item).expanduser().resolve() for item in configured.split(os.pathsep) if item)
+            tuple(
+                Path(item).expanduser().resolve()
+                for item in configured.split(os.pathsep)
+                if item
+            )
             if configured
             else (self.repo_root / "scripts" / "config",)
         )
@@ -388,7 +543,7 @@ class GatewayRuntime:
                 result.append(
                     {
                         "name": path.stem,
-                        "path": str(resolved),
+                        "path": self._config_reference(resolved),
                         "limbs": sorted(limb_by_path.get(resolved, [])),
                     }
                 )
@@ -404,7 +559,11 @@ class GatewayRuntime:
     ) -> Path:
         configured = os.environ.get(environment_name, "").strip()
         roots = (
-            tuple(Path(item).expanduser().resolve() for item in configured.split(os.pathsep) if item)
+            tuple(
+                Path(item).expanduser().resolve()
+                for item in configured.split(os.pathsep)
+                if item
+            )
             if configured
             else tuple(root.resolve() for root in default_roots)
         )
@@ -419,12 +578,17 @@ class GatewayRuntime:
                 (candidate for candidate in candidates if candidate.is_file()),
                 candidates[0],
             )
-        path = path.resolve(strict=True)
+        try:
+            path = path.resolve(strict=True)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=404, detail="配置文件不存在，请选择有效的 YAML 文件或相对配置文件名") from exc
         if path.suffix.lower() not in suffixes:
             allowed = ", ".join(sorted(suffixes))
             raise ValueError(f"{path.name} must use one of: {allowed}")
         if not any(path == root or root in path.parents for root in roots):
-            raise ValueError(f"path is outside the configured production library: {path}")
+            raise ValueError(
+                f"path is outside the configured production library: {path}"
+            )
         return path
 
     def _invoke(self, names: tuple[str, ...], *args: Any, **kwargs: Any) -> Any:
@@ -492,9 +656,7 @@ class GatewayHub:
         self.status_rate_hz = status_rate_hz
         self._shared_controller = controller
         controller_outbox = (
-            getattr(controller, "outbox", None)
-            if controller is not None
-            else None
+            getattr(controller, "outbox", None) if controller is not None else None
         )
         self.outbox = controller_outbox or Outbox(
             self.data_root / "sync" / "outbox.sqlite3",
@@ -503,22 +665,49 @@ class GatewayHub:
         self.outbox_migration_errors: list[str] = []
         sessions_root = self.data_root / "sessions"
         if controller_outbox is None and sessions_root.is_dir():
-            for legacy_path in sorted(
-                sessions_root.glob("*/sync/outbox.sqlite3")
-            ):
+            for legacy_path in sorted(sessions_root.glob("*/sync/outbox.sqlite3")):
                 try:
                     self.outbox.import_from(legacy_path)
                 except (OSError, sqlite3.DatabaseError, ValueError) as exc:
-                    self.outbox_migration_errors.append(
-                        f"{legacy_path}: {exc}"
-                    )
+                    self.outbox_migration_errors.append(f"{legacy_path}: {exc}")
             self._migrate_session_reports(sessions_root)
-        self._platform = _PlatformCoordinator(self.outbox)
+        self._platform = _PlatformCoordinator(
+            self.outbox,
+            snapshot_provider=self.presence_snapshot,
+            on_execution=self.apply_live_execution_code,
+        )
+        plc_config = os.environ.get("RP1_FACTORY_PLC_CONFIG", "").strip() or None
+        self.plc = PlcCabinetService(
+            config_path=plc_config,
+            data_root=self.data_root,
+        )
         self._sessions: dict[str, GatewayRuntime] = {}
         self._interface_owners: dict[str, str] = {}
         self._last_owner: str | None = None
         self._lock = threading.RLock()
         self._started = False
+
+    def apply_live_execution_code(self, session_key: str, execution_code: str) -> None:
+        with self._lock:
+            runtime = self._sessions.get(session_key)
+        if runtime is None:
+            return
+        runtime._invoke(("adopt_platform_execution_code",), execution_code)
+
+    def presence_snapshot(self) -> dict[str, Any]:
+        from factory_hmi.sync.presence import build_presence_snapshot
+
+        with self._lock:
+            runtimes = list(self._sessions.items())
+        snapshots = {}
+        for key, runtime in runtimes:
+            snapshot = runtime._invoke(("snapshot", "get_snapshot"))
+            if hasattr(snapshot, "to_dict"):
+                snapshot = snapshot.to_dict()
+            if not isinstance(snapshot, dict):
+                raise RuntimeError("Invalid station snapshot")
+            snapshots[key] = snapshot
+        return build_presence_snapshot(snapshots, self.plc.snapshot())
 
     def _migrate_session_reports(self, sessions_root: Path) -> None:
         executions_root = self.data_root / "executions"
@@ -539,9 +728,7 @@ class GatewayHub:
                 shutil.copytree(legacy_execution, destination)
             except OSError as exc:
                 shutil.rmtree(destination, ignore_errors=True)
-                self.outbox_migration_errors.append(
-                    f"{legacy_execution}: {exc}"
-                )
+                self.outbox_migration_errors.append(f"{legacy_execution}: {exc}")
         for legacy_bundle in sorted(sessions_root.glob("*/exports/*.tar.gz")):
             if not legacy_bundle.is_file() or legacy_bundle.is_symlink():
                 continue
@@ -551,9 +738,7 @@ class GatewayHub:
             try:
                 shutil.copy2(legacy_bundle, destination)
             except OSError as exc:
-                self.outbox_migration_errors.append(
-                    f"{legacy_bundle}: {exc}"
-                )
+                self.outbox_migration_errors.append(f"{legacy_bundle}: {exc}")
 
     @property
     def shared(self) -> bool:
@@ -562,6 +747,7 @@ class GatewayHub:
     def start(self) -> None:
         with self._lock:
             self._started = True
+            self.plc.start()
             if self.shared:
                 self.session("shared")
 
@@ -573,6 +759,7 @@ class GatewayHub:
             self._started = False
         for runtime in runtimes:
             runtime.close()
+        self.plc.close()
         self._platform.close()
 
     def _key(self, owner: str) -> str:
@@ -584,7 +771,11 @@ class GatewayHub:
             runtime = self._sessions.get(key)
             if runtime is None and create:
                 safe_name = _SAFE_SESSION_NAME.sub("_", key).strip("._") or "anonymous"
-                session_root = self.data_root if self.shared else self.data_root / "sessions" / safe_name
+                session_root = (
+                    self.data_root
+                    if self.shared
+                    else self.data_root / "sessions" / safe_name
+                )
                 controller = (
                     self._shared_controller
                     if self.shared
@@ -715,14 +906,18 @@ def create_app(
     data_root: Path | None = None,
 ) -> FastAPI:
     resolved_data_root = (
-        data_root
-        or Path(
-            os.environ.get(
-                "RP1_FACTORY_DATA_ROOT",
-                "/var/lib/rp1-factory-hmi",
+        (
+            data_root
+            or Path(
+                os.environ.get(
+                    "RP1_FACTORY_DATA_ROOT",
+                    "/var/lib/rp1-factory-hmi",
+                )
             )
         )
-    ).expanduser().resolve()
+        .expanduser()
+        .resolve()
+    )
     hub = GatewayHub(
         controller,
         lease_timeout_s=lease_timeout_s,
@@ -764,12 +959,39 @@ def create_app(
         operation: Callable[[GatewayRuntime], Any],
         *,
         claim: bool = False,
+        preempt_motion: bool = False,
+        motion_command: bool = False,
     ) -> dict[str, Any]:
         require_token(token)
         owner = owner_id(request, client_id)
         runtime = hub.session(owner)
+        interrupt_registered = False
         try:
+            with runtime._motion_epoch_guard:
+                motion_epoch = runtime._motion_epoch
+            if preempt_motion:
+                # Authenticate and validate the lease before signalling the
+                # caller's own return operation. Do not wait behind its lease
+                # guard merely to request cancellation. Normal command writes
+                # remain serialized inside that guard below.
+                runtime.lease.refresh(owner)
+                with runtime._motion_epoch_guard:
+                    runtime._motion_epoch += 1
+                    runtime._motion_interrupts_pending += 1
+                    interrupt_registered = True
+                cancel = getattr(runtime.controller, "request_motion_stop", None)
+                if callable(cancel):
+                    cancel()
             with runtime._lease_guard:
+                with runtime._motion_epoch_guard:
+                    if motion_command and (
+                        motion_epoch != runtime._motion_epoch
+                        or runtime._motion_interrupts_pending
+                    ):
+                        raise RuntimeError(
+                            "queued motor command superseded by disable/disconnect; "
+                            "review the current state before sending a new command"
+                        )
                 if claim:
                     runtime.lease.claim(owner)
                 else:
@@ -785,6 +1007,14 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         except (ValueError, RuntimeError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+        finally:
+            if interrupt_registered:
+                with runtime._motion_epoch_guard:
+                    runtime._motion_interrupts_pending -= 1
+
+    @app.exception_handler(PlcControlDisabledError)
+    async def plc_control_disabled(_request: Request, exc: PlcControlDisabledError) -> JSONResponse:
+        return JSONResponse(status_code=403, content={"detail": str(exc)})
 
     @app.exception_handler(Exception)
     async def unexpected_error(_request: Request, exc: Exception) -> JSONResponse:
@@ -819,6 +1049,100 @@ def create_app(
         if x_rp1_client_id:
             return hub.session(owner_id(request, x_rp1_client_id)).snapshot()
         return hub.current().snapshot()
+
+    @app.get("/api/v1/plc/snapshot")
+    def plc_snapshot() -> dict[str, Any]:
+        return hub.plc.snapshot()
+
+    @app.get("/api/v1/platform/options")
+    def platform_options(
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_token(x_rp1_operator_token)
+        return {"ok": True, "result": hub._platform.options()}
+
+    @app.exception_handler(PlcRequestConflict)
+    async def plc_request_conflict(_request: Request, exc: PlcRequestConflict) -> JSONResponse:
+        snapshot = await asyncio.to_thread(hub.plc.snapshot)
+        return JSONResponse(status_code=409, content={"detail": {
+            "code": exc.code, "message": str(exc), "snapshot": snapshot,
+        }})
+
+    def plc_mutate(operation: str, body: PlcOperatorRequest, client_id: str | None,
+                   token: str | None, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+        require_token(token)
+        return hub.plc.coordination.execute(
+            operation, payload or {}, user=body.user, client_id=client_id,
+            request_id=body.request_id, expected_epoch=body.expected_epoch,
+            expected_revision=body.expected_revision,
+        )
+
+    @app.post("/api/v1/plc/connect")
+    def plc_connect(
+        body: PlcOperatorRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("connect", body, x_rp1_client_id, x_rp1_operator_token)
+
+    @app.post("/api/v1/plc/disconnect")
+    def plc_disconnect(
+        body: PlcOperatorRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("disconnect", body, x_rp1_client_id, x_rp1_operator_token)
+
+    @app.post("/api/v1/plc/start")
+    def plc_start(
+        body: PlcStartRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("start", body, x_rp1_client_id, x_rp1_operator_token, {"channels": body.channels, "voltage": body.voltage, "current": body.current})
+
+    @app.post("/api/v1/plc/stop")
+    def plc_stop(
+        body: PlcOperatorRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("stop", body, x_rp1_client_id, x_rp1_operator_token)
+
+    @app.post("/api/v1/plc/all-stop")
+    def plc_all_stop(
+        body: PlcOperatorRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("all-stop", body, x_rp1_client_id, x_rp1_operator_token)
+
+    @app.post("/api/v1/plc/reset-fault")
+    def plc_reset_fault(
+        body: PlcOperatorRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("reset-fault", body, x_rp1_client_id, x_rp1_operator_token)
+
+    @app.post("/api/v1/plc/channels/{channel}")
+    def plc_channel(
+        channel: int,
+        body: PlcChannelRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        if channel not in {1, 2, 3, 4}:
+            raise HTTPException(status_code=422, detail="channel must be in [1, 4]")
+        return plc_mutate("channel", body, x_rp1_client_id, x_rp1_operator_token, {"channel": channel, "enabled": body.enabled})
+
+    @app.post("/api/v1/plc/setpoints")
+    def plc_setpoints(
+        body: PlcSetpointRequest,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        return plc_mutate("setpoints", body, x_rp1_client_id, x_rp1_operator_token, {"voltage": body.voltage, "current": body.current})
 
     @app.get("/api/v1/configs")
     def configs() -> dict[str, Any]:
@@ -873,7 +1197,7 @@ def create_app(
             temporary.unlink(missing_ok=True)
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         temporary.replace(target)
-        result["config_path"] = str(target)
+        result["config_path"] = f"uploaded/{target.name}"
         return {"ok": True, "result": result}
 
     @app.get("/api/v1/can/status")
@@ -938,6 +1262,7 @@ def create_app(
         method_names: tuple[str, ...],
         *,
         release: bool = False,
+        preempt_motion: bool = False,
     ) -> None:
         def endpoint(
             request: Request,
@@ -950,6 +1275,8 @@ def create_app(
                 x_rp1_client_id,
                 x_rp1_operator_token,
                 lambda runtime: runtime._invoke(method_names),
+                preempt_motion=preempt_motion,
+                motion_command=not preempt_motion,
             )
             if release:
                 hub.release_session(owner)
@@ -971,15 +1298,16 @@ def create_app(
     simple_route("/api/v1/can/disconnect", ("can_disconnect",))
     simple_route("/api/v1/can/recover", ("can_recover",))
     simple_route("/api/v1/motors/discover", ("discover_motors",))
-    simple_route("/api/v1/motors/disable", ("disable_motors", "disable"))
-    simple_route("/api/v1/disconnect", ("disconnect",), release=True)
+    simple_route("/api/v1/motors/reset-fault", ("reset_motor_fault",))
+    simple_route("/api/v1/motors/disable", ("disable_motors", "disable"), preempt_motion=True)
+    simple_route("/api/v1/disconnect", ("disconnect",), release=True, preempt_motion=True)
     simple_route("/api/v1/arm", ("arm",))
     simple_route("/api/v1/playback/pause", ("pause",))
     simple_route("/api/v1/playback/resume", ("resume",))
     simple_route("/api/v1/playback/stop", ("stop",))
     simple_route("/api/v1/playback/next", ("prepare_next_run",))
     simple_route("/api/v1/playback/reset", ("reset", "reset_to_default"))
-    simple_route("/api/v1/playback/disable", ("disable", "emergency_disable"))
+    simple_route("/api/v1/playback/disable", ("disable", "emergency_disable"), preempt_motion=True)
     simple_route("/api/v1/manual/stop", ("manual_stop",))
     simple_route("/api/v1/zero/all", ("zero_all_motors",))
     simple_route("/api/v1/zero/read", ("zero_read",))
@@ -1023,6 +1351,7 @@ def create_app(
                 ("enable_motors",),
                 physical_estop_confirmed=body.physical_estop_confirmed,
             ),
+            motion_command=True,
         )
 
     @app.post("/api/v1/trajectory/import")
@@ -1055,10 +1384,14 @@ def create_app(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         filename = Path(x_filename).name
         if not filename.lower().endswith(".npz"):
-            raise HTTPException(status_code=400, detail="trajectory filename must end with .npz")
+            raise HTTPException(
+                status_code=400, detail="trajectory filename must end with .npz"
+            )
         body = await request.body()
         if not body or len(body) > 128 * 1024 * 1024:
-            raise HTTPException(status_code=413, detail="trajectory must be 1 byte to 128 MiB")
+            raise HTTPException(
+                status_code=413, detail="trajectory must be 1 byte to 128 MiB"
+            )
         target = runtime.trajectory_root / filename
         temporary = target.with_suffix(target.suffix + ".part")
 
@@ -1095,6 +1428,7 @@ def create_app(
             x_rp1_client_id,
             x_rp1_operator_token,
             lambda runtime: runtime._invoke(("start",), **body.model_dump()),
+            motion_command=True,
         )
 
     @app.post("/api/v1/manual/move")
@@ -1113,6 +1447,7 @@ def create_app(
                 targets_deg=body.targets_deg,
                 speed_deg_s=body.speed_deg_s,
             ),
+            motion_command=True,
         )
 
     @app.get("/api/v1/records/current.csv")
@@ -1134,6 +1469,27 @@ def create_app(
             media_type="text/csv",
             filename=path.name,
         )
+
+    @app.get("/api/v1/platform/bench")
+    def read_bench(
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_token(x_rp1_operator_token)
+        path = hub.data_root / "bench-code"
+        code = path.read_text(encoding="utf-8").strip() if path.is_file() else ""
+        return {"ok": True, "bench_code": code}
+
+    @app.post("/api/v1/platform/bench")
+    def write_bench(
+        body: BenchCodeRequest,
+        x_rp1_operator_token: str | None = Header(default=None),
+    ) -> dict[str, Any]:
+        require_token(x_rp1_operator_token)
+        path = hub.data_root / "bench-code"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        code = body.bench_code.strip().upper()
+        path.write_text(code + "\n", encoding="utf-8")
+        return {"ok": True, "bench_code": code}
 
     @app.post("/api/v1/platform/login")
     def platform_login(
@@ -1279,10 +1635,39 @@ def create_app(
         require_token(x_rp1_operator_token)
         runtime = hub.session(owner_id(request, x_rp1_client_id))
         try:
-            result = runtime.submit_execution(body.test_id)
+            result = runtime.submit_execution(
+                body.test_id,
+                reason=body.reason,
+                verified_status=body.verified_status,
+                operator_summary=body.operator_summary,
+                review={
+                    "tester": body.tester,
+                    "bench": body.bench,
+                    "outcome": body.outcome,
+                    "notes": body.notes,
+                    "analysis": body.analysis,
+                    "verified_status": body.verified_status,
+                    "station_id": body.station_id,
+                    "discrepancy_reason": body.discrepancy_reason,
+                    "test_name": body.test_name,
+                    "actual_object": body.actual_object,
+                } if body.verified_status else None,
+            )
         except (ValueError, RuntimeError, FileNotFoundError) as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         return {"ok": True, "result": result}
+
+    @app.post("/api/v1/executions/import-history")
+    def import_history(body: HistoryImportRequest, request: Request,
+        x_rp1_client_id: str | None = Header(default=None),
+        x_rp1_operator_token: str | None = Header(default=None)) -> dict[str, Any]:
+        require_token(x_rp1_operator_token)
+        runtime = hub.session(owner_id(request, x_rp1_client_id))
+        try:
+            result = runtime._invoke(("import_history",), body.paths, body.model_dump(exclude={"paths"}))
+        except (ValueError, RuntimeError, OSError) as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        return {"ok": True, "items": result}
 
     @app.post("/api/v1/executions/retry")
     def retry_execution(

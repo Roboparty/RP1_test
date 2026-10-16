@@ -20,3 +20,25 @@
 **/*.so
 **/*.sqlite3
 **/*.dump
+
+# Integrated platform secrets, acquisition data and build outputs.
+**/.env.*
+!**/.env.example
+**/.venv*/
+**/node_modules/
+**/secrets/
+**/backups/
+**/artifacts/
+**/.qa/
+**/*.tsbuildinfo
+**/*.log
+**/*.sqlite*
+**/*.db
+**/*.key
+**/*.pem
+**/*.parquet
+**/*.npz
+**/*.npy
+**/*.tar
+**/*.tar.gz
+**/*.deb.sha256

@@ -38,6 +38,7 @@ from app.schemas.read_models import (
     HomeTestCase,
     JointAnalysisCycle,
     JointAnalysisMetric,
+    JointRecordSummary,
     JointAnalysisPoint,
     JointAnalysisSelection,
     JointAnalysisSeries,
@@ -67,6 +68,15 @@ def _number(value: Decimal | float | int | None) -> float:
     return float(value or 0)
 
 
+def _finite(value: Decimal | float | int | None) -> float | None:
+    if value is None:
+        return None
+    number = float(value)
+    if not math.isfinite(number):
+        return None
+    return number
+
+
 def _encode_cursor(*parts: int) -> str:
     raw = ":".join(str(part) for part in parts).encode()
     return base64.urlsafe_b64encode(raw).decode().rstrip("=")
@@ -83,6 +93,29 @@ def _decode_cursor(cursor: str | None, size: int = 1) -> tuple[int, ...]:
     if len(parts) != size or any(part < 0 for part in parts):
         raise ApiError(422, "invalid_cursor", "分页游标无效，请从第一页重新查询。")
     return parts
+
+
+def _encode_execution_cursor(started_at: datetime | None, internal_id: int) -> str:
+    stamp = "" if started_at is None else started_at.isoformat()
+    raw = f"{stamp}|{internal_id}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_execution_cursor(cursor: str | None) -> tuple[datetime | None, int | None]:
+    if not cursor:
+        return None, None
+    try:
+        padded = cursor + "=" * (-len(cursor) % 4)
+        stamp, raw_id = base64.urlsafe_b64decode(padded).decode().split("|", 1)
+        internal_id = int(raw_id)
+        if internal_id < 1:
+            raise ValueError
+        started_at = datetime.fromisoformat(stamp) if stamp else None
+        if started_at is not None and started_at.tzinfo is None:
+            started_at = started_at.replace(tzinfo=timezone.utc)
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise ApiError(422, "invalid_cursor", "分页游标无效，请从第一页重新查询。") from exc
+    return started_at, internal_id
 
 
 def _freshness(as_of_at: datetime, last_received_at: datetime | None) -> FreshnessView:
@@ -651,24 +684,20 @@ overall_scope AS (
 ),
 ledger AS (
     SELECT ri.id, ri.asset_id, ri.execution_id, ri.active_seconds, ri.received_at,
-           CASE
-             WHEN ea.assignment_status = 'PENDING_CONFIG_REVIEW'
-               OR esa.inclusion_status = 'PENDING' THEN 'PENDING'
-             WHEN ea.eligible
-               AND ea.assignment_status = 'CONFIRMED'
-               AND ea.quality_status IN ('VALID', 'PARTIAL')
-               AND esa.inclusion_status = 'INCLUDED'
-               AND ri.source_kind <> 'LEGACY_REPORTED' THEN 'INCLUDED'
-             ELSE 'EXCLUDED'
-           END AS disposition
+           reliability.interval_disposition(ri.id, os.id) AS disposition
     FROM test.runtime_interval ri
     JOIN test.asset a ON a.id = ri.asset_id
     LEFT JOIN overall_scope os ON os.asset_kind = a.asset_kind
-    LEFT JOIN reliability.exposure_assessment ea
-      ON ea.runtime_interval_id = ri.id
-    LEFT JOIN reliability.exposure_scope_assignment esa
-      ON esa.assessment_id = ea.id AND esa.scope_id = os.id
     WHERE NOT ri.voided
+      AND (
+        ri.source_method IS DISTINCT FROM 'hmi-live-heartbeat'
+        OR NOT EXISTS (
+            SELECT 1
+            FROM test.test_execution unapproved
+            WHERE unapproved.id = ri.execution_id
+              AND unapproved.approved_submission_id IS NULL
+        )
+      )
 )
 """
 
@@ -756,6 +785,8 @@ class ReadModelRepository:
             warning_count=sum(_is_source_warning(item.freshness_status) for item in sources),
         )
 
+    # Audited imported history retains its status but cannot represent a live run.
+    # Apply the lineage exclusion to active counts, contexts and elapsed clocks.
     def dashboard_home(self) -> DashboardHome:
         as_of_at = self._as_of()
         freshness = self._global_freshness(as_of_at)
@@ -795,27 +826,30 @@ class ReadModelRepository:
                         ON mp.asset_id = a.id AND a.asset_kind = 'MODULE'
                       WHERE NOT a.voided
                     )
-                    SELECT scoped.asset_kind,
+                    SELECT target_part.asset_kind,
                            target_part.part_code AS target_part_code,
                            target_part.name AS target_part_name,
                            count(DISTINCT scoped.id) AS asset_count,
                            count(DISTINCT e.id) FILTER (
-                             WHERE e.status = 'RUNNING'
+                             WHERE test.is_live_running(e.id)
+                               AND NOT EXISTS (SELECT 1 FROM integration.execution_import_record history
+                                               WHERE history.execution_id = e.id)
                            ) AS active_execution_count,
                            count(DISTINCT scoped.id) FILTER (
                              WHERE latest_health.health_status = 'ABNORMAL'
                            ) AS abnormal_asset_count,
                            CASE
-                             WHEN count(*) FILTER (WHERE e.status = 'RUNNING') > 0 THEN 'RUNNING'
+                             WHEN count(*) FILTER (WHERE test.is_live_running(e.id)) > 0 THEN 'RUNNING'
                              WHEN count(*) FILTER (WHERE e.status = 'PAUSED') > 0 THEN 'PAUSED'
                              WHEN count(*) FILTER (WHERE e.status = 'BLOCKED') > 0 THEN 'BLOCKED'
                              WHEN count(*) FILTER (WHERE e.status = 'FAILED') > 0 THEN 'FAILED'
                              WHEN count(*) FILTER (WHERE e.status = 'COMPLETED') > 0 THEN 'COMPLETED'
                              ELSE 'NOT_STARTED'
                            END AS status
-                    FROM scoped_assets scoped
-                    JOIN catalog.test_target_part target_part
+                    FROM catalog.test_target_part target_part
+                    LEFT JOIN scoped_assets scoped
                       ON target_part.part_code = scoped.target_part_code
+                     AND target_part.asset_kind = scoped.asset_kind
                     LEFT JOIN test.test_execution e
                       ON e.asset_id = scoped.id AND e.status <> 'VOIDED'
                     LEFT JOIN LATERAL (
@@ -827,8 +861,9 @@ class ReadModelRepository:
                       ) DESC NULLS LAST, health.id DESC
                       LIMIT 1
                     ) latest_health ON true
-                    GROUP BY scoped.asset_kind, target_part.part_code, target_part.name
-                    ORDER BY scoped.asset_kind, target_part.part_code
+                    WHERE target_part.enabled
+                    GROUP BY target_part.asset_kind, target_part.part_code, target_part.name
+                    ORDER BY target_part.asset_kind, target_part.part_code
                     """
                 )
             ).mappings()
@@ -868,10 +903,10 @@ class ReadModelRepository:
                               ELSE mp.target_part_code
                             END = ANY(CAST(:part_codes AS text[]))
                     )
-                    SELECT scoped_assets.asset_kind, tc.public_id, tc.case_code, tc.name,
+                    SELECT tc.asset_kind, tc.public_id, tc.case_code, tc.name,
                            tc.target_part_code, target_part.name AS target_part_name,
                            CASE
-                             WHEN count(*) FILTER (WHERE e.status = 'RUNNING') > 0 THEN 'RUNNING'
+                             WHEN count(*) FILTER (WHERE test.is_live_running(e.id)) > 0 THEN 'RUNNING'
                              WHEN count(*) FILTER (WHERE e.status = 'PAUSED') > 0 THEN 'PAUSED'
                              WHEN count(*) FILTER (WHERE e.status = 'BLOCKED') > 0 THEN 'BLOCKED'
                              WHEN count(*) FILTER (WHERE e.status = 'FAILED') > 0 THEN 'FAILED'
@@ -881,27 +916,57 @@ class ReadModelRepository:
                            END AS status,
                            count(e.id) AS execution_count,
                            count(DISTINCT scoped_assets.id) AS scope_asset_count,
+                           count(e.id) FILTER (
+                             WHERE EXISTS (
+                               SELECT 1
+                               FROM integration.execution_import_record history
+                               WHERE history.execution_id = e.id
+                             )
+                           ) AS historical_execution_count,
+                           count(e.id) FILTER (
+                             WHERE NOT EXISTS (
+                               SELECT 1
+                               FROM integration.execution_import_record history
+                               WHERE history.execution_id = e.id
+                             )
+                           ) AS platform_execution_count,
+                           count(e.id) FILTER (
+                             WHERE er.outcome = 'PASSED'
+                           ) AS passed_execution_count,
+                           count(e.id) FILTER (
+                             WHERE er.outcome = 'FAILED'
+                           ) AS failed_execution_count,
+                           count(e.id) FILTER (
+                             WHERE er.outcome = 'INCONCLUSIVE'
+                           ) AS inconclusive_execution_count,
+                           count(e.id) FILTER (
+                             WHERE er.outcome = 'NOT_EVALUATED'
+                           ) AS not_evaluated_execution_count,
+                           coalesce(sum(er.exception_count), 0) AS exception_count,
+                           min(e.normalized_started_at) AS first_recorded_at,
+                           max(coalesce(
+                             e.normalized_ended_at,
+                             e.received_at,
+                             e.normalized_started_at
+                           )) AS latest_recorded_at,
+                           coalesce(
+                             array_agg(DISTINCT station.station_code ORDER BY station.station_code)
+                               FILTER (WHERE station.station_code IS NOT NULL),
+                             ARRAY[]::text[]
+                           ) AS station_codes,
                            coalesce(sum(el.total_seconds), 0) AS total_seconds,
                            coalesce(sum(el.effective_seconds), 0) AS effective_seconds,
                            coalesce(sum(el.excluded_seconds), 0) AS excluded_seconds,
                            coalesce(sum(el.pending_seconds), 0) AS pending_seconds,
                            coalesce(sum(
-                             CASE WHEN e.status = 'RUNNING' AND e.normalized_started_at IS NOT NULL
-                               THEN greatest(0, extract(epoch FROM (
-                                 CASE
-                                   WHEN e.received_at IS NULL THEN e.normalized_started_at
-                                   WHEN e.received_at < :as_of_at - interval '5 minutes' THEN e.received_at
-                                   ELSE :as_of_at
-                                 END - e.normalized_started_at
-                               )))
-                               ELSE 0 END
+                             CASE WHEN test.is_live_running(e.id) THEN coalesce(e.reported_active_seconds, 0) ELSE 0 END
                            ), 0) AS current_elapsed_seconds,
                            max(CASE
                              WHEN jsonb_typeof(published.procedure_spec -> 'target_duration_seconds') = 'number'
                              THEN (published.procedure_spec ->> 'target_duration_seconds')::numeric
                              ELSE NULL END) AS target_seconds
                     FROM catalog.test_case tc
-                    JOIN scoped_assets
+                    LEFT JOIN scoped_assets
                       ON scoped_assets.target_part_code = tc.target_part_code
                      AND scoped_assets.asset_kind = tc.asset_kind
                     JOIN catalog.test_target_part target_part
@@ -922,12 +987,14 @@ class ReadModelRepository:
                          AND execution_version.test_case_id = tc.id
                      )
                     LEFT JOIN execution_ledger el ON el.execution_id = e.id
+                    LEFT JOIN test.execution_result er ON er.execution_id = e.id
+                    LEFT JOIN test.station station ON station.id = e.station_id
                     WHERE tc.enabled
                       AND tc.target_part_code = ANY(CAST(:part_codes AS text[]))
-                    GROUP BY scoped_assets.asset_kind, tc.id, tc.public_id, tc.case_code, tc.name,
+                    GROUP BY tc.asset_kind, tc.id, tc.public_id, tc.case_code, tc.name,
                              tc.target_part_code, target_part.name
-                    ORDER BY scoped_assets.asset_kind, tc.target_part_code,
-                      (count(*) FILTER (WHERE e.status = 'RUNNING') > 0) DESC,
+                    ORDER BY tc.asset_kind, tc.target_part_code,
+                      (count(*) FILTER (WHERE test.is_live_running(e.id)) > 0) DESC,
                       tc.case_code
                     """
                 ),
@@ -951,6 +1018,22 @@ class ReadModelRepository:
                         pending_seconds=_number(row["pending_seconds"]),
                         execution_count=int(row["execution_count"]),
                         scope_asset_count=int(row["scope_asset_count"]),
+                        historical_execution_count=int(
+                            row["historical_execution_count"]
+                        ),
+                        platform_execution_count=int(row["platform_execution_count"]),
+                        passed_execution_count=int(row["passed_execution_count"]),
+                        failed_execution_count=int(row["failed_execution_count"]),
+                        inconclusive_execution_count=int(
+                            row["inconclusive_execution_count"]
+                        ),
+                        not_evaluated_execution_count=int(
+                            row["not_evaluated_execution_count"]
+                        ),
+                        exception_count=int(row["exception_count"]),
+                        first_recorded_at=row["first_recorded_at"],
+                        latest_recorded_at=row["latest_recorded_at"],
+                        station_codes=list(row["station_codes"]),
                         target_duration_seconds=target,
                         target_progress_percent=None if not target else effective / target * 100,
                     )
@@ -1032,7 +1115,7 @@ class ReadModelRepository:
                         a.public_id AS asset_public_id, a.asset_code,
                         coalesce(nullif(a.display_name, ''), a.asset_code) AS asset_name,
                         CASE
-                          WHEN count(*) FILTER (WHERE e.status = 'RUNNING') > 0 THEN 'RUNNING'
+                          WHEN count(*) FILTER (WHERE test.is_live_running(e.id)) > 0 THEN 'RUNNING'
                           WHEN count(*) FILTER (WHERE e.status = 'BLOCKED') > 0 THEN 'BLOCKED'
                           WHEN count(*) FILTER (WHERE e.status = 'FAILED') > 0 THEN 'FAILED'
                           WHEN count(*) FILTER (WHERE e.status = 'COMPLETED') > 0 THEN 'COMPLETED'
@@ -1047,14 +1130,7 @@ class ReadModelRepository:
                         coalesce(sum(el.excluded_seconds), 0) AS excluded_seconds,
                         coalesce(sum(el.pending_seconds), 0) AS pending_seconds,
                         coalesce(sum(CASE
-                          WHEN e.status = 'RUNNING' AND e.normalized_started_at IS NOT NULL
-                          THEN greatest(0, extract(epoch FROM (
-                            CASE
-                              WHEN e.received_at IS NULL THEN e.normalized_started_at
-                              WHEN e.received_at < :as_of_at - interval '5 minutes' THEN e.received_at
-                              ELSE :as_of_at
-                            END - e.normalized_started_at
-                          )))
+                          WHEN test.is_live_running(e.id) THEN coalesce(e.reported_active_seconds, 0)
                           ELSE 0 END), 0) AS active_elapsed_seconds
                       FROM test.test_execution e
                       JOIN test.asset a ON a.id = e.asset_id
@@ -1216,20 +1292,16 @@ class ReadModelRepository:
                     LEFT JOIN last_data ld ON ld.asset_id = a.id
                     LEFT JOIN LATERAL (
                       SELECT e.public_id, e.execution_code, tc.case_code,
-                        CASE WHEN e.status = 'RUNNING' AND e.normalized_started_at IS NOT NULL
-                          THEN greatest(0, extract(epoch FROM (
-                            CASE
-                              WHEN e.received_at IS NULL THEN e.normalized_started_at
-                              WHEN e.received_at < :as_of_at - interval '5 minutes' THEN e.received_at
-                              ELSE :as_of_at
-                            END - e.normalized_started_at
-                          )))
-                          ELSE 0 END AS current_elapsed_seconds
+                        CASE WHEN test.is_live_running(e.id) THEN coalesce(e.reported_active_seconds, 0) ELSE 0 END AS current_elapsed_seconds
                       FROM test.test_execution e
                       JOIN catalog.test_case_version tcv ON tcv.id = e.test_case_version_id
                       JOIN catalog.test_case tc ON tc.id = tcv.test_case_id
                       WHERE e.asset_id = a.id AND e.status IN ('RUNNING', 'PAUSED', 'BLOCKED')
-                      ORDER BY (e.status = 'RUNNING') DESC,
+                        AND (e.status <> 'RUNNING' OR test.is_live_running(e.id))
+                        AND e.normalized_ended_at IS NULL
+                        AND NOT EXISTS (SELECT 1 FROM integration.execution_import_record history
+                                        WHERE history.execution_id = e.id)
+                      ORDER BY (test.is_live_running(e.id)) DESC,
                                e.normalized_started_at DESC NULLS LAST, e.id DESC
                       LIMIT 1
                     ) current_execution ON true
@@ -1244,6 +1316,14 @@ class ReadModelRepository:
                       AND (
                         CAST(:target_part_code AS text) IS NULL
                         OR target_part.part_code = CAST(:target_part_code AS text)
+                        OR (
+                          CAST(:target_part_code AS text) = 'ARM'
+                          AND target_part.part_code IN ('ARM', 'SARM')
+                        )
+                        OR (
+                          CAST(:target_part_code AS text) = 'LEG'
+                          AND target_part.part_code IN ('LEG', 'SLEG')
+                        )
                       )
                       AND (CAST(:status AS text) IS NULL OR a.lifecycle_status = CAST(:status AS text))
                       AND (CAST(:pattern AS text) IS NULL OR a.asset_code ILIKE :pattern
@@ -1359,20 +1439,16 @@ class ReadModelRepository:
                 CROSS JOIN last_data ld
                 LEFT JOIN LATERAL (
                   SELECT e.public_id, e.execution_code, tc.case_code,
-                    CASE WHEN e.status = 'RUNNING' AND e.normalized_started_at IS NOT NULL
-                      THEN greatest(0, extract(epoch FROM (
-                        CASE
-                          WHEN e.received_at IS NULL THEN e.normalized_started_at
-                          WHEN e.received_at < :as_of_at - interval '5 minutes' THEN e.received_at
-                          ELSE :as_of_at
-                        END - e.normalized_started_at
-                      )))
-                      ELSE 0 END AS current_elapsed_seconds
+                    CASE WHEN test.is_live_running(e.id) THEN coalesce(e.reported_active_seconds, 0) ELSE 0 END AS current_elapsed_seconds
                   FROM test.test_execution e
                   JOIN catalog.test_case_version tcv ON tcv.id = e.test_case_version_id
                   JOIN catalog.test_case tc ON tc.id = tcv.test_case_id
                   WHERE e.asset_id = a.id AND e.status IN ('RUNNING', 'PAUSED', 'BLOCKED')
-                  ORDER BY (e.status = 'RUNNING') DESC,
+                        AND (e.status <> 'RUNNING' OR test.is_live_running(e.id))
+                        AND e.normalized_ended_at IS NULL
+                        AND NOT EXISTS (SELECT 1 FROM integration.execution_import_record history
+                                        WHERE history.execution_id = e.id)
+                  ORDER BY (test.is_live_running(e.id)) DESC,
                            e.normalized_started_at DESC NULLS LAST, e.id DESC LIMIT 1
                 ) current_execution ON true
                 LEFT JOIN LATERAL (
@@ -1405,7 +1481,11 @@ class ReadModelRepository:
                 ) st ON true
                 WHERE e.asset_id = :asset_id
                   AND e.status IN ('RUNNING', 'PAUSED', 'BLOCKED')
-                ORDER BY (e.status = 'RUNNING') DESC,
+                        AND (e.status <> 'RUNNING' OR test.is_live_running(e.id))
+                        AND e.normalized_ended_at IS NULL
+                  AND NOT EXISTS (SELECT 1 FROM integration.execution_import_record history
+                                  WHERE history.execution_id = e.id)
+                ORDER BY (test.is_live_running(e.id)) DESC,
                          e.normalized_started_at DESC NULLS LAST, e.id DESC
                 LIMIT 1
                 """
@@ -1678,7 +1758,7 @@ class ReadModelRepository:
         as_of_at: datetime | None = None,
     ) -> ExecutionList:
         as_of_at = as_of_at or self._as_of()
-        (after_id,) = _decode_cursor(cursor)
+        after_started, after_id = _decode_execution_cursor(cursor)
         rows = list(
             self.session.execute(
                 text(
@@ -1694,15 +1774,7 @@ class ReadModelRepository:
                            )) OVER () AS all_data_cutoff_at,
                            coalesce(stage_totals.stage_count, 0) AS stage_count,
                            coalesce(runtime_totals.closed_duration_seconds, 0) AS closed_duration_seconds,
-                           CASE WHEN e.status = 'RUNNING' AND e.normalized_started_at IS NOT NULL
-                             THEN greatest(0, extract(epoch FROM (
-                               CASE
-                                 WHEN e.received_at IS NULL THEN e.normalized_started_at
-                                 WHEN e.received_at < :as_of_at - interval '5 minutes' THEN e.received_at
-                                 ELSE :as_of_at
-                               END - e.normalized_started_at
-                             )))
-                             ELSE 0 END AS active_elapsed_seconds
+                           CASE WHEN test.is_live_running(e.id) THEN coalesce(e.reported_active_seconds, 0) ELSE 0 END AS active_elapsed_seconds
                     FROM test.test_execution e
                     JOIN test.asset a ON a.id = e.asset_id
                     JOIN test.test_campaign c ON c.id = e.campaign_id
@@ -1719,15 +1791,36 @@ class ReadModelRepository:
                       FROM test.runtime_interval ri
                       WHERE ri.execution_id = e.id AND NOT ri.voided
                     ) runtime_totals ON true
-                    WHERE e.id > :after_id AND e.status <> 'VOIDED'
+                    WHERE e.status <> 'VOIDED'
                       AND (CAST(:asset_id AS bigint) IS NULL OR e.asset_id = CAST(:asset_id AS bigint))
                       AND (CAST(:test_case_id AS bigint) IS NULL
                            OR tcv.test_case_id = CAST(:test_case_id AS bigint))
-                    ORDER BY e.id LIMIT :fetch_limit
+                      AND (
+                        CAST(:after_id AS bigint) IS NULL
+                        OR (
+                          CAST(:after_started AS timestamptz) IS NULL
+                          AND e.normalized_started_at IS NULL
+                          AND e.id < CAST(:after_id AS bigint)
+                        )
+                        OR (
+                          CAST(:after_started AS timestamptz) IS NOT NULL
+                          AND (
+                            e.normalized_started_at < CAST(:after_started AS timestamptz)
+                            OR (
+                              e.normalized_started_at = CAST(:after_started AS timestamptz)
+                              AND e.id < CAST(:after_id AS bigint)
+                            )
+                            OR e.normalized_started_at IS NULL
+                          )
+                        )
+                      )
+                    ORDER BY e.normalized_started_at DESC NULLS LAST, e.id DESC
+                    LIMIT :fetch_limit
                     """
                 ),
                 {
                     "as_of_at": as_of_at,
+                    "after_started": after_started,
                     "after_id": after_id,
                     "asset_id": asset_id,
                     "test_case_id": test_case_id,
@@ -1742,7 +1835,11 @@ class ReadModelRepository:
             items=items,
             page=PageMeta(
                 limit=limit,
-                next_cursor=_encode_cursor(rows[-1]["internal_id"]) if has_more and rows else None,
+                next_cursor=(
+                    _encode_execution_cursor(rows[-1]["normalized_started_at"], rows[-1]["internal_id"])
+                    if has_more and rows
+                    else None
+                ),
             ),
             as_of_at=as_of_at,
             data_cutoff_at=rows[0]["all_data_cutoff_at"] if rows else None,
@@ -1768,6 +1865,49 @@ class ReadModelRepository:
             active_elapsed_seconds=_number(row["active_elapsed_seconds"]),
             data_quality=row["data_quality"],
             clock_quality=row["clock_quality"],
+        )
+
+    def live_executions(self) -> ExecutionList:
+        as_of_at = self._as_of()
+        rows = list(
+            self.session.execute(
+                text(
+                    """
+                    SELECT e.id AS internal_id, e.public_id, e.execution_code,
+                           a.public_id AS asset_public_id, a.asset_code,
+                           tc.public_id AS case_public_id, tc.case_code, tc.name AS case_name,
+                           c.campaign_code, cy.cycle_code, e.status,
+                           st.station_code,
+                           e.normalized_started_at, e.normalized_ended_at,
+                           e.data_quality, e.clock_quality, e.received_at,
+                           max(e.received_at) OVER () AS all_data_cutoff_at,
+                           0 AS stage_count,
+                           0 AS closed_duration_seconds,
+                           coalesce(e.reported_active_seconds, 0) AS active_elapsed_seconds
+                    FROM test.test_execution e
+                    JOIN test.asset a ON a.id = e.asset_id
+                    JOIN test.test_campaign c ON c.id = e.campaign_id
+                    JOIN test.test_cycle cy ON cy.id = e.cycle_id
+                    JOIN catalog.test_case_version tcv ON tcv.id = e.test_case_version_id
+                    JOIN catalog.test_case tc ON tc.id = tcv.test_case_id
+                    LEFT JOIN test.station st ON st.id = e.station_id
+                    WHERE test.is_live_running(e.id)
+                    ORDER BY e.normalized_started_at DESC NULLS LAST, e.id DESC
+                    LIMIT 100
+                    """
+                ),
+                {"as_of_at": as_of_at},
+            ).mappings()
+        )
+        items = [
+            self._execution_item(row).model_copy(update={"station_code": row["station_code"]})
+            for row in rows
+        ]
+        return ExecutionList(
+            items=items,
+            page=PageMeta(limit=100, next_cursor=None),
+            as_of_at=as_of_at,
+            data_cutoff_at=rows[0]["all_data_cutoff_at"] if rows else None,
         )
 
     def asset_executions(self, identifier: str, limit: int, cursor: str | None) -> ExecutionList:
@@ -1853,13 +1993,13 @@ class ReadModelRepository:
                 f"""
                 WITH {LEDGER_CTE},
                 case_executions AS (
-                  SELECT e.id, e.status, e.normalized_started_at, e.received_at
+                  SELECT e.id, e.status, e.normalized_started_at, e.received_at, e.reported_active_seconds
                   FROM test.test_execution e
                   JOIN catalog.test_case_version tcv ON tcv.id = e.test_case_version_id
                   WHERE tcv.test_case_id = :case_id AND e.status <> 'VOIDED'
                 ),
                 execution_totals AS (
-                  SELECT ce.id, ce.status, ce.normalized_started_at, ce.received_at,
+                  SELECT ce.id, ce.status, ce.normalized_started_at, ce.received_at, ce.reported_active_seconds,
                     coalesce(sum(l.active_seconds), 0) AS total_seconds,
                     coalesce(sum(l.active_seconds) FILTER (WHERE l.disposition = 'INCLUDED'), 0) AS effective_seconds,
                     coalesce(sum(l.active_seconds) FILTER (WHERE l.disposition = 'EXCLUDED'), 0) AS excluded_seconds,
@@ -1867,23 +2007,17 @@ class ReadModelRepository:
                     max(l.received_at) AS runtime_received_at
                   FROM case_executions ce
                   LEFT JOIN ledger l ON l.execution_id = ce.id
-                  GROUP BY ce.id, ce.status, ce.normalized_started_at, ce.received_at
+                  GROUP BY ce.id, ce.status, ce.normalized_started_at, ce.received_at, ce.reported_active_seconds
                 )
                 SELECT
                   coalesce(sum(et.total_seconds), 0) AS total_seconds,
                   coalesce(sum(et.effective_seconds), 0) AS effective_seconds,
                   coalesce(sum(et.excluded_seconds), 0) AS excluded_seconds,
                   coalesce(sum(et.pending_seconds), 0) AS pending_seconds,
-                  coalesce(sum(CASE WHEN et.status = 'RUNNING'
-                    THEN greatest(0, extract(epoch FROM (
-                      CASE
-                        WHEN et.received_at IS NULL THEN et.normalized_started_at
-                        WHEN et.received_at < :as_of_at - interval '5 minutes' THEN et.received_at
-                        ELSE :as_of_at
-                      END - et.normalized_started_at
-                    )))
+                  coalesce(sum(CASE WHEN test.is_live_running(et.id)
+                    THEN et.reported_active_seconds
                     ELSE 0 END), 0) AS active_elapsed_seconds,
-                  count(*) FILTER (WHERE et.status = 'RUNNING') AS running_count,
+                  count(*) FILTER (WHERE test.is_live_running(et.id)) AS running_count,
                   count(*) FILTER (WHERE et.status = 'COMPLETED') AS completed_count,
                   count(*) FILTER (WHERE et.status = 'FAILED') AS failed_count,
                   count(*) FILTER (WHERE et.status = 'BLOCKED') AS blocked_count,
@@ -1991,6 +2125,7 @@ class ReadModelRepository:
                 SELECT id, public_id, execution_code
                 FROM test.test_execution
                 WHERE public_id::text = :identifier OR execution_code = :identifier
+                   OR id IN (SELECT execution_id FROM integration.execution_archive_alias WHERE alias=:identifier)
                 """
             ),
             {"identifier": identifier},
@@ -2396,15 +2531,7 @@ class ReadModelRepository:
                          AS fact_data_cutoff_at,
                        coalesce(stage_totals.stage_count, 0) AS stage_count,
                        coalesce(runtime_totals.closed_duration_seconds, 0) AS closed_duration_seconds,
-                       CASE WHEN e.status = 'RUNNING' AND e.normalized_started_at IS NOT NULL
-                         THEN greatest(0, extract(epoch FROM (
-                           CASE
-                             WHEN e.received_at IS NULL THEN e.normalized_started_at
-                             WHEN e.received_at < :as_of_at - interval '5 minutes' THEN e.received_at
-                             ELSE :as_of_at
-                           END - e.normalized_started_at
-                         )))
-                         ELSE 0 END AS active_elapsed_seconds,
+                       CASE WHEN test.is_live_running(e.id) THEN coalesce(e.reported_active_seconds, 0) ELSE 0 END AS active_elapsed_seconds,
                        cfg.public_id AS configuration_public_id, cfg.fingerprint,
                        cfg.effective_from, cfg.reliability_impact, cfg.hardware_manifest,
                        cfg.software_manifest, cfg.parameter_manifest,
@@ -2431,6 +2558,7 @@ class ReadModelRepository:
                   WHERE ri.execution_id = e.id AND NOT ri.voided
                 ) runtime_totals ON true
                 WHERE e.public_id::text = :identifier OR e.execution_code = :identifier
+                   OR e.id IN (SELECT execution_id FROM integration.execution_archive_alias WHERE alias=:identifier)
                 """
             ),
             {"identifier": identifier, "as_of_at": as_of_at},
@@ -2441,7 +2569,7 @@ class ReadModelRepository:
             text(
                 """
                 SELECT source_status, outcome, termination_kind, summary, issues,
-                       exception_count, reported_duration_seconds,
+                       exception_count, reported_duration_seconds, completed_cycles,
                        executor_display, environment_label, last_data_at,
                        telemetry_source, archive_status, archive_path,
                        report_reference, normalization_flags
@@ -2519,6 +2647,7 @@ class ReadModelRepository:
             {"execution_id": row["internal_id"]},
         ).mappings()
         evidence = [ArtifactView(**dict(item)) for item in evidence_rows]
+        joint_records = self._joint_records(row["internal_id"])
         quality_counts: dict[str, int] = {}
         for item in metrics:
             quality_counts[item.quality_status] = quality_counts.get(item.quality_status, 0) + 1
@@ -2540,6 +2669,7 @@ class ReadModelRepository:
             result=execution_result,
             peak_summary=list(peaks.values()),
             metrics=metrics,
+            joint_records=joint_records,
             data_quality_summary={
                 "execution_data_quality": row["data_quality"],
                 "execution_clock_quality": row["clock_quality"],
@@ -2549,6 +2679,60 @@ class ReadModelRepository:
             as_of_at=as_of_at,
             data_cutoff_at=row["fact_data_cutoff_at"],
         )
+
+    def _joint_records(self, execution_id: int) -> list[JointRecordSummary]:
+        rows = self.session.execute(
+            text(
+                """
+                SELECT summary.source_joint, summary.source_kind, summary.sample_count,
+                       summary.mean_abs_torque_nm, summary.peak_abs_torque_nm,
+                       summary.bus_voltage_mean_v, summary.bus_voltage_min_v,
+                       summary.bus_voltage_max_v, summary.bus_current_mean_abs_a,
+                       summary.bus_current_peak_abs_a, summary.temp_start_c,
+                       summary.temp_end_c, summary.temp_rise_c, summary.temp_max_c,
+                       summary.tracking_rms_rad
+                FROM integration.legacy_joint_summary summary
+                JOIN integration.legacy_recovered_execution recovered
+                  ON recovered.batch_key = summary.batch_key
+                 AND recovered.source_test_id = summary.source_test_id
+                WHERE recovered.existing_execution_id = :execution_id
+                  AND summary.source_kind = 'POSTGRES_SUMMARY'
+                ORDER BY summary.source_joint
+                """
+            ),
+            {"execution_id": execution_id},
+        ).mappings()
+        records: list[JointRecordSummary] = []
+        for item in rows:
+            voltage = _finite(item["bus_voltage_mean_v"])
+            current = _finite(item["bus_current_mean_abs_a"])
+            tracking = _finite(item["tracking_rms_rad"])
+            records.append(
+                JointRecordSummary(
+                    joint=item["source_joint"],
+                    source_kind=item["source_kind"],
+                    sample_count=int(item["sample_count"]),
+                    mean_abs_torque_nm=_finite(item["mean_abs_torque_nm"]),
+                    peak_abs_torque_nm=_finite(item["peak_abs_torque_nm"]),
+                    bus_voltage_mean_v=voltage,
+                    bus_voltage_min_v=_finite(item["bus_voltage_min_v"]),
+                    bus_voltage_max_v=_finite(item["bus_voltage_max_v"]),
+                    bus_current_mean_abs_a=current,
+                    bus_current_peak_abs_a=_finite(item["bus_current_peak_abs_a"]),
+                    estimated_mean_power_w=(
+                        voltage * current if voltage is not None and current is not None else None
+                    ),
+                    temp_start_c=_finite(item["temp_start_c"]),
+                    temp_end_c=_finite(item["temp_end_c"]),
+                    temp_rise_c=_finite(item["temp_rise_c"]),
+                    temp_max_c=_finite(item["temp_max_c"]),
+                    tracking_rms_deg=(
+                        None if tracking is None else tracking * 180.0 / math.pi
+                    ),
+                    formal_eligible=False,
+                )
+            )
+        return records
 
     def mtbf_conclusions(
         self,

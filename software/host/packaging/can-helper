@@ -1,0 +1,12 @@
+#!/usr/bin/python3 -I
+"""Root-owned entry point with fixed code and policy locations."""
+import os
+import sys
+
+os.environ['RP1_FACTORY_CAN_POLICY'] = '/etc/rp1-test-hmi/can-policy.yaml'
+os.environ.pop('RP1_FACTORY_CAN_DISABLED', None)
+sys.path[:0] = ['/opt/rp1-test-hmi/hmi', '/opt/rp1-test-hmi/runtime']
+
+from factory_hmi.can_helper import main
+
+raise SystemExit(main(policy_path='/etc/rp1-test-hmi/can-policy.yaml'))

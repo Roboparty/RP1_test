@@ -29,16 +29,15 @@ _FACTORY_DATA_SAMPLE_POINT = 750
 _FACTORY_DATA_SJW = 2
 _FACTORY_CAN_FD_MTU = 72
 _FACTORY_TX_QUEUE_LENGTH = 10_000
-ALLOWED_ARBITRATION_BITRATES = frozenset(
-    {125_000, 250_000, 500_000, 1_000_000}
-)
-ALLOWED_DATA_BITRATES = frozenset(
-    {1_000_000, 2_000_000, 4_000_000, 5_000_000}
-)
+ALLOWED_ARBITRATION_BITRATES = frozenset({125_000, 250_000, 500_000, 1_000_000})
+ALLOWED_DATA_BITRATES = frozenset({1_000_000, 2_000_000, 4_000_000, 5_000_000})
 INTERFACE_RE = re.compile(r"^can[0-9]+$")
 
 PKEXEC_PATH = "/usr/bin/pkexec"
-HELPER_PATH = "/usr/lib/rp1-factory-hmi/factory-hmi-can-helper"
+HELPER_PATH = os.environ.get(
+    "RP1_FACTORY_CAN_HELPER_PATH",
+    "/usr/lib/rp1-test-hmi/factory-hmi-can-helper",
+)
 
 
 class CanManagerError(RuntimeError):
@@ -317,9 +316,7 @@ class Pyroute2NetlinkAdapter(NetlinkAdapter):
         link = links[0]
         flags = link.get("flags", 0) if isinstance(link, Mapping) else 0
         operstate_raw = _attr(link, "IFLA_OPERSTATE")
-        operstate = (
-            str(operstate_raw).lower() if operstate_raw is not None else None
-        )
+        operstate = str(operstate_raw).lower() if operstate_raw is not None else None
         can_data = _nested_can_data(link)
         bitrate = _integer_field(
             _attr(can_data, "IFLA_CAN_BITTIMING", {}),
@@ -497,6 +494,8 @@ class PkexecHelperClient:
         dbitrate: int | None = None,
         fd: bool | None = None,
     ) -> Mapping[str, Any]:
+        if os.environ.get("RP1_FACTORY_CAN_DISABLED") == "1":
+            raise HelperExecutionError("CAN 配置未启用：当前包仅提供 PLC 通信，不配置物理 CAN")
         names = validate_interfaces(interfaces)
         request: dict[str, Any] = {"action": action, "interfaces": list(names)}
         if action in {"connect", "recover"}:
@@ -614,9 +613,7 @@ class CanManager:
                 ) from exc
             return [self.adapter.get_status(name) for name in names]
 
-    def disconnect(
-        self, interfaces: Sequence[str]
-    ) -> list[CanInterfaceStatus]:
+    def disconnect(self, interfaces: Sequence[str]) -> list[CanInterfaceStatus]:
         names = validate_interfaces(interfaces)
         errors: list[str] = []
         with self._lock:
@@ -657,8 +654,7 @@ class CanManager:
                     errors.append(f"{name}: {exc}")
             if errors:
                 raise CanOperationError(
-                    "failed to recover one or more CAN interfaces: "
-                    + "; ".join(errors)
+                    "failed to recover one or more CAN interfaces: " + "; ".join(errors)
                 )
             return [self.adapter.get_status(name) for name in names]
 

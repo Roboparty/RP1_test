@@ -1,0 +1,111 @@
+.archives-page, .curve-analysis-page { display: grid; gap: 18px; min-width: 0; }
+.archives-page .page-title, .curve-analysis-page .page-title { margin-bottom: 0; }
+.archives-page > .back-button, .curve-analysis-page > .back-button { justify-self: start; min-height: 36px; }
+.archive-scope-note, .archive-muted { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
+.archive-statuses { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.archive-statuses .status-mark { white-space: nowrap; }
+.archive-table { min-width: 900px; }
+.archive-table th:first-child { width: 25%; }
+.archive-table th:nth-child(3) { width: 27%; }
+.archive-table .archive-statuses { gap: 6px; }
+.archive-table .archive-statuses > * { font-size: 11px; }
+.archive-table small { display: block; margin-top: 5px; color: var(--muted); }
+.archive-curve-link, .archives-page .page-title > button, .archive-form > button, .archive-submit-row > button,
+.curve-range-bar > button, .curve-reference-form > button, .curve-compare-search > button {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 40px; border: 1px solid var(--brand-strong); border-radius: 5px; padding: 8px 13px; background: var(--brand-strong); color: var(--surface); font-size: 12px; font-weight: 650;
+}
+.archive-curve-link svg, .archives-page button svg, .curve-range-bar button svg, .curve-sidebar button svg { width: 16px; height: 16px; flex-shrink: 0; }
+.archive-curve-link:disabled, .archives-page button:disabled, .curve-analysis-page button:disabled { opacity: .5; cursor: not-allowed; }
+.archive-evidence { display: grid; gap: 16px; }
+.archive-evidence > .panel + .panel { margin-top: 0; }
+.archive-form, .curve-reference-form { display: grid; gap: 14px; }
+.archive-form-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.archive-form-wide { grid-column: 1 / -1; }
+.archive-form label, .archive-submit-row label, .curve-query-controls label, .curve-range-bar label, .curve-reference-form label, .curve-compare-search label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; font-weight: 600; min-width: 0; }
+.archive-form input, .archive-form select, .archive-form textarea, .archive-submit-row input, .curve-query-controls select, .curve-range-bar input, .curve-reference-form input, .curve-compare-search input {
+  min-width: 0; width: 100%; min-height: 40px; padding: 8px 10px; color: var(--text); border: 1px solid var(--line-strong); border-radius: 5px; background: var(--surface-subtle); font: inherit; font-weight: 400;
+}
+.archive-form textarea { min-height: 90px; resize: vertical; }
+.archive-form > button { justify-self: start; }
+.archive-submit-row { display: flex; gap: 12px; align-items: end; }
+.archive-submit-row label { flex: 1; }
+.archive-notes { white-space: pre-wrap; overflow-wrap: anywhere; margin: 14px 0 0; padding: 14px 16px; border-left: 3px solid var(--brand); background: var(--surface-subtle); font-size: 13px; line-height: 1.8; }
+.archive-analysis-grid { display: flex; gap: 12px 28px; flex-wrap: wrap; margin: 10px 0; }
+.archive-analysis-grid > div { min-width: 100px; max-width: 100%; }
+.archive-analysis-grid dt { color: var(--muted); font-size: 11px; margin-bottom: 6px; }
+.archive-analysis-grid dd { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.archive-analysis-list { margin: 0; padding: 0; list-style: none; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 10px; }
+.archive-analysis-list > li { padding: 8px 12px; border: 1px solid var(--line); border-radius: 5px; background: var(--surface-subtle); }
+.archive-rules { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); font-size: 12px; }
+.archive-rules summary { cursor: pointer; color: var(--brand-strong); }
+.archive-hash { font: 11px/1.6 ui-monospace, monospace; overflow-wrap: anywhere; }
+.curve-explorer { display: grid; grid-template-columns: minmax(0, 1fr) 296px; gap: 16px; align-items: start; }
+.curve-main-column, .curve-sidebar { min-width: 0; }
+.curve-sidebar { display: grid; gap: 16px; }
+.curve-sidebar > .panel + .panel { margin-top: 0; }
+.curve-unit-tag { padding: 5px 9px; background: var(--brand-soft); color: var(--brand-strong); border-radius: 4px; font-size: 11px; }
+.curve-query-controls { display: grid; grid-template-columns: minmax(150px, 1.5fr) minmax(160px, 1.1fr) minmax(120px, 1fr); gap: 12px; }
+.curve-subjects { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 16px 0 0; padding: 12px 0; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.curve-subjects legend { color: var(--muted); font-size: 11px; padding: 0 10px 0 0; }
+.curve-subjects label, .curve-toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; }
+.curve-subjects input, .curve-toggle input, .curve-legend input { width: 16px; height: 16px; accent-color: var(--brand-strong); flex-shrink: 0; }
+.curve-missing-context { font-size: 11px; color: var(--soft); margin: 9px 0 0; }
+.time-series-workspace { padding-top: 14px; }
+.curve-range-bar { display: grid; grid-template-columns: repeat(4, minmax(70px, 1fr)) auto auto; gap: 8px; align-items: end; }
+.curve-range-bar label { font-size: 11px; }
+.curve-range-bar input { min-height: 36px; font-size: 12px; }
+.curve-range-bar > button { min-height: 36px; padding: 7px 9px; white-space: nowrap; font-size: 11px; }
+.curve-range-bar > button.secondary { color: var(--brand-strong); border-color: var(--line-strong); background: var(--surface); }
+.curve-canvas-wrap { min-width: 0; position: relative; margin-top: 8px; }
+.time-series-canvas { height: 475px; width: 100%; min-width: 0; }
+.curve-refresh { position: absolute; top: 14px; left: 75px; padding: 5px 9px; background: var(--surface); border: 1px solid var(--line); color: var(--brand-strong); font-size: 11px; border-radius: 4px; pointer-events: none; }
+.curve-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 8px; border-top: 1px solid var(--line); padding-top: 12px; }
+.curve-legend label { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-left-width: 3px; border-radius: 3px; background: var(--surface-subtle); font-size: 11px; cursor: pointer; min-width: 0; }
+.curve-legend label > span { flex: 1; overflow-wrap: anywhere; line-height: 1.6; }
+.curve-legend strong { color: var(--muted); font-weight: 400; }
+.curve-legend small { margin-left: 8px; color: var(--soft); }
+.curve-chart-footer { display: flex; gap: 10px; flex-wrap: wrap; justify-content: space-between; padding-top: 12px; font-size: 10px; line-height: 1.7; color: var(--muted); }
+.curve-chart-footer strong { font-weight: 600; color: var(--brand-strong); }
+.curve-toggle { margin: 0 0 8px; }
+.curve-toggle + .archive-muted { margin-bottom: 16px; }
+.curve-reference-form { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 8px; gap: 10px; }
+.curve-reference-list { list-style: none; margin: 12px 0; padding: 0; display: grid; gap: 8px; }
+.curve-reference-list > li { display: flex; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 12px; min-width: 0; }
+.curve-reference-list > li > span { min-width: 0; overflow-wrap: anywhere; }
+.curve-reference-list strong, .curve-reference-list small { display: block; color: var(--muted); margin-top: 4px; }
+.curve-compare-subjects { display: flex; flex-wrap: wrap; gap: 8px; margin: 9px 0 0; padding: 7px 0 0; border: 0; border-top: 1px solid var(--line); }
+.curve-compare-subjects legend { color: var(--muted); font-size: 10px; }
+.curve-compare-subjects label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.curve-compare-subjects input { accent-color: var(--brand); }
+.archive-history { display: grid; gap: 12px; }
+.archive-history > details { border-top: 1px solid var(--line); padding-top: 12px; font-size: 12px; }
+.archive-history summary { color: var(--brand-strong); cursor: pointer; line-height: 1.7; }
+.archive-history p { line-height: 1.7; }
+.curve-reference-list > li > button { align-self: center; min-width: 32px; height: 32px; padding: 6px; color: var(--muted); background: var(--surface-subtle); border: 1px solid var(--line); border-radius: 4px; }
+.curve-compare-search { display: flex; align-items: end; gap: 6px; }
+.curve-pin-reference { width: 100%; min-height: 38px; border: 1px solid var(--line-strong); border-radius: 4px; background: var(--brand-soft); color: var(--brand-strong); font-size: 12px; font-weight: 600; }
+.curve-pin-reference + .archive-muted { margin: 8px 0 16px; }
+.curve-compare-search label { min-width: 0; flex: 1; }
+.curve-compare-search > button { padding: 8px; min-width: 40px; }
+.curve-compare-results { display: grid; gap: 8px; max-height: 300px; overflow: auto; margin-top: 12px; }
+.curve-compare-results > button { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px; color: var(--text); border: 1px solid var(--line); border-radius: 4px; background: var(--surface-subtle); text-align: left; }
+.curve-compare-results span { min-width: 0; overflow-wrap: anywhere; }
+.curve-compare-results strong, .curve-compare-results small { display: block; font-size: 11px; }
+.curve-compare-results small { margin-top: 5px; color: var(--muted); line-height: 1.5; }
+.curve-error { margin: 12px 0; padding: 10px 12px; border-left: 3px solid var(--danger); background: var(--danger-bg); color: var(--danger); font-size: 12px; line-height: 1.6; }
+.submission-analysis { margin: 18px 0; border-top: 1px solid var(--line); padding-top: 14px; }
+@media (max-width: 1200px) {
+  .curve-explorer { grid-template-columns: minmax(0, 1fr); }
+  .curve-sidebar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .curve-range-bar { grid-template-columns: repeat(4, minmax(70px, 1fr)) auto auto; }
+}
+@media (max-width: 700px) {
+  .archive-form-grid { grid-template-columns: 1fr; }
+  .curve-sidebar { grid-template-columns: 1fr; }
+  .curve-query-controls { grid-template-columns: 1fr; }
+  .curve-range-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .time-series-canvas { height: 370px; }
+  .archive-submit-row { flex-direction: column; align-items: stretch; }
+  .archive-submit-row > button { align-self: start; }
+  .archive-filter { grid-template-columns: 1fr; }
+}

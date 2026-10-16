@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>roboparty_motors</name>
+  <version>2.2.1</version>
+  <description>roboparty motors package</description>
+  <maintainer email="ZhihaoLiu_hit@163.com">RoboParty</maintainer>
+  <license>GPL-3.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <build_depend>fmt</build_depend>
+  <build_depend>spdlog</build_depend>
+  <build_depend>eigen</build_depend>
+  <build_depend>boost</build_depend>
+  <build_depend>pybind11_vendor</build_depend>
+  <build_depend>python3-dev</build_depend>
+
+  <exec_depend>fmt</exec_depend>
+  <exec_depend>spdlog</exec_depend>
+  <exec_depend>eigen</exec_depend>
+  <exec_depend>boost</exec_depend>
+  <exec_depend>python3</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

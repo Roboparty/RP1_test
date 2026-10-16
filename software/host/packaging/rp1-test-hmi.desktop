@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=rp1-test-hmi
+Name[zh_CN]=rp1-test-hmi
+Exec=rp1-test-hmi
+Icon=rp1-test-hmi
+Terminal=false
+Categories=Utility;Engineering;
+StartupNotify=false
+StartupWMClass=rp1-test-hmi

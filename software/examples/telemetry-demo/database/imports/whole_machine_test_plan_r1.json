@@ -1,0 +1,24 @@
+{
+  "schema_version": "1.0",
+  "revision": "DOCX-V1.0-R1-20260921",
+  "source_version": "DOCX-V1.0-20260921",
+  "approved_at": "2026-09-21T22:46:00+08:00",
+  "changes": [
+    {
+      "case_code": "SYS-REL-002",
+      "action": "PUBLISH_REVISED",
+      "primary_stress_or_duration": "单电池连续段≤1.5 h；累计50 km及300次姿态循环",
+      "replace_step": {
+        "from": "2. 每5 km执行30次原地转向；累计姿态循环不少于400次。",
+        "to": "2. 每5 km执行30次原地转向；累计姿态循环不少于300次。"
+      },
+      "basis_and_boundary": "智元A2官方连续行走约1.5 h；吉尼斯公开长距离记录为106.286 km且途中换电15次。本用例取单电池≤1.5 h、累计50 km；每5 km执行30次原地转向，累计300次。",
+      "approval_note": "批准采用累计50 km及300次姿态循环，每5 km执行30次原地转向。"
+    },
+    {
+      "case_code": "SYS-REL-015",
+      "action": "DISABLE",
+      "approval_note": "从当前整机测试用例目录移除；保留原始草稿版本用于审计。"
+    }
+  ]
+}

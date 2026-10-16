@@ -35,7 +35,9 @@ from factory_hmi.core.can_manager import (
 )
 
 
-POLICY_PATH = Path("/etc/rp1-factory-hmi/can-policy.yaml")
+POLICY_PATH = Path(
+    os.environ.get("RP1_FACTORY_CAN_POLICY", "/etc/rp1-test-hmi/can-policy.yaml")
+)
 MAX_JSON_REQUEST_BYTES = 64 * 1024
 SUPPORTED_ACTIONS = frozenset({"status", "connect", "disconnect", "recover"})
 
@@ -64,9 +66,7 @@ def _validated_rate_set(
     try:
         rates = tuple(value)  # type: ignore[arg-type]
     except TypeError as exc:
-        raise CanValidationError(
-            f"{field} must be a list of integer bitrates"
-        ) from exc
+        raise CanValidationError(f"{field} must be a list of integer bitrates") from exc
     if not rates and not allow_empty:
         raise CanValidationError(f"{field} must not be empty")
     if any(isinstance(rate, bool) or not isinstance(rate, int) for rate in rates):
@@ -106,7 +106,9 @@ class CanPolicy:
         try:
             names = validate_interfaces(tuple(allowed_interfaces))
         except (TypeError, CanValidationError) as exc:
-            raise CanValidationError(f"invalid policy interface whitelist: {exc}") from exc
+            raise CanValidationError(
+                f"invalid policy interface whitelist: {exc}"
+            ) from exc
 
         using_legacy_timing = all(
             value is None
@@ -244,9 +246,7 @@ def _policy_timing(mapping: Mapping[str, Any]) -> PolicyTiming:
     # Backward compatibility for the original single timing schema.
     missing = [key for key in ("bitrate", "dbitrate", "fd") if key not in timing]
     if missing:
-        raise CanPolicyError(
-            "policy must explicitly define " + ", ".join(missing)
-        )
+        raise CanPolicyError("policy must explicitly define " + ", ".join(missing))
     try:
         bitrate, dbitrate, fd = validate_timing(
             timing["bitrate"], timing["dbitrate"], timing["fd"]
@@ -284,9 +284,7 @@ def _parse_policy(data: object) -> CanPolicy:
             except CanValidationError as exc:
                 raise CanPolicyError(f"invalid interface in policy: {exc}") from exc
             if not isinstance(raw_settings, Mapping):
-                raise CanPolicyError(
-                    f"policy settings for {name} must be a mapping"
-                )
+                raise CanPolicyError(f"policy settings for {name} must be a mapping")
             settings: dict[str, Any] = dict(data)
             settings.update(raw_settings)
             timing = _policy_timing(settings)
@@ -345,7 +343,9 @@ def load_policy(
     try:
         data = yaml.safe_load(policy_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, yaml.YAMLError) as exc:
-        raise CanPolicyError(f"failed to parse CAN policy {policy_path}: {exc}") from exc
+        raise CanPolicyError(
+            f"failed to parse CAN policy {policy_path}: {exc}"
+        ) from exc
     return _parse_policy(data)
 
 
@@ -372,9 +372,7 @@ def _request_fields(request: Mapping[str, Any]) -> tuple[str, tuple[str, ...]]:
             raise CanValidationError(
                 f"{action} request must include " + ", ".join(missing)
             )
-        validate_timing(
-            request["bitrate"], request.get("dbitrate"), request["fd"]
-        )
+        validate_timing(request["bitrate"], request.get("dbitrate"), request["fd"])
     return action, names
 
 
@@ -424,9 +422,7 @@ def execute_request(
 
     action, names = authorize_request(policy, request)
     timing = (
-        validate_timing(
-            request["bitrate"], request.get("dbitrate"), request["fd"]
-        )
+        validate_timing(request["bitrate"], request.get("dbitrate"), request["fd"])
         if action in {"connect", "recover"}
         else None
     )
@@ -458,9 +454,7 @@ def execute_request(
                 try:
                     adapter.disconnect(completed_name)
                 except Exception as rollback_exc:
-                    rollback_errors.append(
-                        f"{completed_name}: {rollback_exc}"
-                    )
+                    rollback_errors.append(f"{completed_name}: {rollback_exc}")
             suffix = (
                 "; rollback failures: " + ", ".join(rollback_errors)
                 if rollback_errors
@@ -577,13 +571,9 @@ def main(
             if actual_argv
             else _request_from_stdin(actual_stdin)
         )
-        policy = load_policy(
-            policy_path, require_root_owned=require_root_owned_policy
-        )
+        policy = load_policy(policy_path, require_root_owned=require_root_owned_policy)
         actual_adapter = adapter or Pyroute2NetlinkAdapter()
-        response = execute_request(
-            request, policy=policy, adapter=actual_adapter
-        )
+        response = execute_request(request, policy=policy, adapter=actual_adapter)
         json.dump(response, actual_stdout, separators=(",", ":"))
         actual_stdout.write("\n")
         return 0

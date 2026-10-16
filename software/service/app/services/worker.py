@@ -81,35 +81,16 @@ def _interval_rows(
                    CASE WHEN ri.ended_at IS NULL THEN NULL
                         ELSE LEAST(ri.ended_at, :cutoff) END AS ended_at,
                    ri.active_seconds,
-                   CASE
-                       WHEN ri.source_kind = 'LEGACY_REPORTED' THEN 'LEGACY_REPORTED'
-                       WHEN ea.id IS NULL OR esa.id IS NULL THEN 'PENDING'
-                       WHEN ea.assignment_status = 'PENDING_CONFIG_REVIEW' THEN 'PENDING'
-                       WHEN esa.inclusion_status = 'PENDING' THEN 'PENDING'
-                       WHEN ea.assignment_status = 'INVALID'
-                         OR ea.quality_status IN ('INVALID', 'MISSING') THEN 'EXCLUDED'
-                       WHEN esa.inclusion_status = 'INCLUDED'
-                         AND ea.eligible
-                         AND ea.assignment_status = 'CONFIRMED'
-                         AND ea.quality_status IN ('VALID', 'PARTIAL') THEN 'INCLUDED'
-                       ELSE 'EXCLUDED'
-                   END AS disposition,
-                   coalesce(nullif(esa.rationale, ''), nullif(ea.exclusion_reason, ''),
-                            CASE WHEN ea.id IS NULL THEN '缺少暴露资格评估'
-                                 WHEN esa.id IS NULL THEN '缺少scope归属'
-                                 ELSE ri.source_method END) AS reason
+                   reliability.interval_disposition(ri.id, :scope_id) AS disposition,
+                   coalesce(ri.source_method, '') AS reason
             FROM test.runtime_interval ri
             JOIN test.asset a ON a.id = ri.asset_id
-            LEFT JOIN reliability.exposure_assessment ea
-              ON ea.runtime_interval_id = ri.id
-            LEFT JOIN reliability.exposure_scope_assignment esa
-              ON esa.assessment_id = ea.id AND esa.scope_id = :scope_id
             WHERE ri.campaign_id = :campaign_id
               AND NOT ri.voided
               AND ri.created_at <= :as_of
               AND (
-                  ri.source_kind = 'LEGACY_REPORTED'
-                  OR (ri.started_at < :cutoff AND ri.ended_at IS NOT NULL)
+                  (ri.ended_at IS NOT NULL AND ri.ended_at <= :cutoff)
+                  OR (ri.ended_at IS NULL AND ri.source_kind = 'LEGACY_REPORTED')
               )
             ORDER BY a.id, ri.started_at NULLS FIRST, ri.id
             """
@@ -199,12 +180,11 @@ def process_job(session: Session, job: dict[str, Any]) -> None:
     as_of = cutoff
     interval_rows = _interval_rows(session, campaign_id, scope_id, cutoff, as_of)
 
-    status_intervals: dict[int, dict[str, list[tuple[datetime, datetime]]]] = defaultdict(
-        lambda: defaultdict(list)
-    )
-    runtime_intervals: dict[int, list[tuple[datetime, datetime]]] = defaultdict(list)
     asset_meta: dict[int, dict[str, Any]] = {}
-    legacy_seconds: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
+    included_seconds: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
+    excluded_seconds: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
+    pending_seconds: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
+    runtime_seconds: dict[int, Decimal] = defaultdict(lambda: Decimal("0"))
     interval_details: list[dict[str, Any]] = []
 
     for row in interval_rows:
@@ -214,22 +194,21 @@ def process_job(session: Session, job: dict[str, Any]) -> None:
             "asset_code": row["asset_code"],
             "display_name": row["display_name"],
         }
-        if row["source_kind"] == "LEGACY_REPORTED":
-            seconds = Decimal(row["active_seconds"])
-            legacy_seconds[asset_id] += seconds
+        seconds = Decimal(row["active_seconds"] or 0)
+        disposition = row["disposition"]
+        if disposition == "INCLUDED":
+            included_seconds[asset_id] += seconds
+        elif disposition == "PENDING":
+            pending_seconds[asset_id] += seconds
         else:
-            if row["ended_at"] <= row["started_at"]:
-                continue
-            interval = (row["started_at"], row["ended_at"])
-            runtime_intervals[asset_id].append(interval)
-            status_intervals[asset_id][row["disposition"]].append(interval)
-            seconds = Decimal(str((row["ended_at"] - row["started_at"]).total_seconds()))
+            excluded_seconds[asset_id] += seconds
+        runtime_seconds[asset_id] += seconds
         interval_details.append(
             {
                 "interval_id": str(row["interval_public_id"]),
                 "asset_id": str(row["asset_public_id"]),
                 "asset_code": row["asset_code"],
-                "status": row["disposition"],
+                "status": disposition,
                 "started_at": row["started_at"].isoformat() if row["started_at"] else None,
                 "ended_at": row["ended_at"].isoformat() if row["ended_at"] else None,
                 "hours": float(seconds / Decimal("3600")),
@@ -242,12 +221,11 @@ def process_job(session: Session, job: dict[str, Any]) -> None:
     pending_total = Decimal("0")
     runtime_total = Decimal("0")
     per_asset: list[dict[str, Any]] = []
-    all_asset_ids = sorted(set(asset_meta) | set(runtime_intervals) | set(legacy_seconds))
-    for asset_id in all_asset_ids:
-        included = interval_union_seconds(status_intervals[asset_id].get("INCLUDED", []))
-        excluded = interval_union_seconds(status_intervals[asset_id].get("EXCLUDED", []))
-        pending = interval_union_seconds(status_intervals[asset_id].get("PENDING", []))
-        runtime = interval_union_seconds(runtime_intervals[asset_id])
+    for asset_id in sorted(asset_meta):
+        included = included_seconds[asset_id]
+        excluded = excluded_seconds[asset_id]
+        pending = pending_seconds[asset_id]
+        runtime = runtime_seconds[asset_id]
         included_total += included
         excluded_total += excluded
         pending_total += pending
@@ -296,7 +274,7 @@ def process_job(session: Session, job: dict[str, Any]) -> None:
     levels = tuple(sorted(set(configured_levels + DEFAULT_CONFIDENCE_LEVELS)))
     result = calculate_mtbf(exposure_hours, relevant_failures, levels)
 
-    total_test_seconds = runtime_total + sum(legacy_seconds.values(), Decimal("0"))
+    total_test_seconds = runtime_total
     confidence_bounds = {str(level): result.lower_bound(level) for level in levels}
     failure_evidence = [
         {
@@ -487,6 +465,7 @@ def run_worker() -> None:
             try:
                 with session.begin():
                     _set_worker_context(session, f"{worker_id}:claim")
+                    session.execute(text("SELECT test.expire_stale_live_executions()"))
                     job = claim_job(session, worker_id)
                 if job:
                     with session.begin():

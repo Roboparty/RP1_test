@@ -2,7 +2,7 @@
 
 [English](README.md) | 简体中文
 
-RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包含手臂、胸腔、腿部负载三类台架，RP1 Factory HMI、轨迹与数据采集工具、数据服务，以及 18 项整机测试方法草案。
+RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包含手臂、胸腔、腿部负载三类台架，React 测试大屏、PLC/CAN HMI、轨迹与数据采集工具、可靠性平台，以及 18 项整机测试方法草案。
 
 ![RP1 可靠性测试上位机：老化测试界面](docs/media/factory-hmi.jpg)
 
@@ -10,7 +10,7 @@ RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包�
 
 | 要做什么 | 入口 |
 | --- | --- |
-| 运行软件 | [HMI 仿真后端](software/host/README.md#快速开始) · [数据服务与合成演示](software/README.md#快速开始) |
+| 运行软件 | [测试大屏与平台](software/README.md) · [PLC/CAN HMI](software/host/README.md) · [独立遥测演示](software/examples/telemetry-demo/README.md) |
 | 搭建模块测试台架 | [硬件文件与搭建说明](hardware/README.md) |
 | 选择方法并记录测试 | [18 项测试方法](test-cases/README.md) · [检查与执行记录](test-cases/checklist.md) |
 
@@ -31,7 +31,7 @@ RP1 模块老化与整机可靠性测试的台架资料、软件和方法。包�
 ## 项目内容
 
 - **硬件：** 模块测试台架的加工资料、BOM 和控制柜参考架构。
-- **软件：** 桌面 HMI、本机控制网关、轨迹工具、FastAPI、PostgreSQL、InfluxDB 和 Grafana。
+- **软件：** React 测试大屏、PLC/CAN HMI、FastAPI、PostgreSQL、中央归档与分析；InfluxDB/Grafana 演示独立保留。
 - **测试方法：** 18 项整机测试方法草案，包含条件、步骤和记录要求。
 - **离线分析：** [独立 Python 工具与核对样例](data-analysis/README.md)，统计有效时长、跟随误差、温度、缺失样本和事件。
 

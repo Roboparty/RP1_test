@@ -18,10 +18,12 @@ OUTBOX_STATES = {
     "validating",
     "pending_review",
     "approved",
+    "uploaded",
     "rejected",
     "sync_failed",
+    "archived", "awaiting_classification", "needs_verification", "processing_failed",
 }
-TERMINAL_STATES = {"approved", "rejected"}
+TERMINAL_STATES = {"approved", "uploaded", "rejected", "archived", "awaiting_classification", "needs_verification", "processing_failed"}
 
 
 @dataclass(frozen=True)
@@ -41,6 +43,10 @@ class OutboxItem:
     remote_state: str
     created_at: float
     updated_at: float
+    execution_code: str = ""
+    submission_owner: str = ""
+    submission_revision: int = 0
+    submission_payload: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -93,6 +99,16 @@ class Outbox:
                 ON execution_outbox(state, next_attempt_at);
                 """
             )
+            connection.execute("BEGIN IMMEDIATE")
+            columns = {row["name"] for row in connection.execute("PRAGMA table_info(execution_outbox)")}
+            if "execution_code" not in columns:
+                connection.execute("ALTER TABLE execution_outbox ADD COLUMN execution_code TEXT NOT NULL DEFAULT ''")
+            if "submission_owner" not in columns:
+                connection.execute("ALTER TABLE execution_outbox ADD COLUMN submission_owner TEXT NOT NULL DEFAULT ''")
+            if "submission_revision" not in columns:
+                connection.execute("ALTER TABLE execution_outbox ADD COLUMN submission_revision INTEGER NOT NULL DEFAULT 0")
+            if "submission_payload" not in columns:
+                connection.execute("ALTER TABLE execution_outbox ADD COLUMN submission_payload TEXT NOT NULL DEFAULT ''")
             if recover_interrupted:
                 self._recover_interrupted(connection)
 
@@ -140,6 +156,7 @@ class Outbox:
             "remote_state",
             "created_at",
             "updated_at",
+            "execution_code",
         )
         column_list = ", ".join(columns)
         with self._lock:
@@ -157,16 +174,20 @@ class Outbox:
                         "PRAGMA legacy_outbox.table_info(execution_outbox)"
                     )
                 }
-                missing = set(columns) - available
+                missing = set(columns) - available - {"execution_code"}
                 if missing:
                     raise ValueError(
                         f"legacy outbox is missing columns: {sorted(missing)}"
                     )
                 connection.execute("BEGIN IMMEDIATE")
+                source_columns = ", ".join(
+                    name if name in available else "'' AS execution_code"
+                    for name in columns
+                )
                 cursor = connection.execute(
                     f"""
                     INSERT OR IGNORE INTO execution_outbox ({column_list})
-                    SELECT {column_list}
+                    SELECT {source_columns}
                     FROM legacy_outbox.execution_outbox
                     """
                 )
@@ -197,6 +218,10 @@ class Outbox:
             remote_state=str(row["remote_state"]),
             created_at=float(row["created_at"]),
             updated_at=float(row["updated_at"]),
+            execution_code=str(row["execution_code"]),
+            submission_owner=str(row["submission_owner"]),
+            submission_revision=int(row["submission_revision"]),
+            submission_payload=str(row["submission_payload"]),
         )
 
     def enqueue(
@@ -204,6 +229,8 @@ class Outbox:
         manifest: Mapping[str, Any],
         bundle_path: Path | str,
     ) -> OutboxItem:
+        if manifest.get("recording_scope") == "local" and manifest.get("archive_protocol") != "reliability_v1_csv":
+            raise ValueError("仅本地记录没有平台测试上下文，不能加入上传或审批队列。")
         execution_uuid = str(manifest.get("execution_uuid") or "").strip()
         test_id = str(manifest.get("test_id") or "").strip()
         path = Path(bundle_path).expanduser().resolve()
@@ -220,6 +247,9 @@ class Outbox:
         )
         with self._lock, self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
+            existing = connection.execute("SELECT * FROM execution_outbox WHERE execution_uuid=?", (execution_uuid,)).fetchone()
+            if existing and (existing["state"] in {"approved", "uploaded", "pending_review", "archived", "awaiting_classification"} or existing["remote_state"] == "PENDING"):
+                return self._item(existing)
             connection.execute(
                 """
                 INSERT INTO execution_outbox (
@@ -230,8 +260,9 @@ class Outbox:
                     test_id = excluded.test_id,
                     bundle_path = excluded.bundle_path,
                     manifest_json = excluded.manifest_json,
+                    submission_payload = CASE WHEN execution_outbox.state IN ('rejected','needs_verification') THEN '' ELSE execution_outbox.submission_payload END,
                     state = CASE
-                        WHEN execution_outbox.state IN ('approved', 'pending_review')
+                        WHEN execution_outbox.state IN ('approved', 'uploaded', 'pending_review')
                             THEN execution_outbox.state
                         ELSE 'local_completed'
                     END,
@@ -266,6 +297,26 @@ class Outbox:
             ).fetchone()
         return self._item(row) if row is not None else None
 
+    def record_central_analysis(self, execution_uuid: str, analysis: Mapping[str, Any]) -> OutboxItem:
+        """Cache the authenticated server analysis without changing frozen requests."""
+        encoded = json.dumps(dict(analysis), ensure_ascii=False, allow_nan=False)
+        if len(encoded.encode("utf-8")) > 2 * 1024 * 1024:
+            raise ValueError("中央分析超出受限元数据大小")
+        with self._lock, self._connect() as connection:
+            connection.execute("BEGIN IMMEDIATE")
+            row = connection.execute("SELECT manifest_json FROM execution_outbox WHERE execution_uuid=?", (execution_uuid,)).fetchone()
+            if row is None:
+                raise KeyError(execution_uuid)
+            manifest = json.loads(row["manifest_json"])
+            if manifest.get("central_analysis") != dict(analysis):
+                manifest["central_analysis"] = dict(analysis)
+                manifest["central_analysis_received_at"] = time.time()
+                connection.execute("UPDATE execution_outbox SET manifest_json=?,updated_at=? WHERE execution_uuid=?",
+                    (json.dumps(manifest, ensure_ascii=False, sort_keys=True), time.time(), execution_uuid))
+        item = self.get(execution_uuid)
+        assert item is not None
+        return item
+
     def list(self, *, limit: int = 100) -> list[OutboxItem]:
         with self._connect() as connection:
             rows = connection.execute(
@@ -278,7 +329,7 @@ class Outbox:
             ).fetchall()
         return [self._item(row) for row in rows]
 
-    def due(self, *, now: float | None = None, limit: int = 10) -> list[OutboxItem]:
+    def due(self, *, now: float | None = None, limit: int = 10, owner: str | None = None) -> list[OutboxItem]:
         current = time.time() if now is None else float(now)
         with self._connect() as connection:
             rows = connection.execute(
@@ -287,10 +338,11 @@ class Outbox:
                 WHERE state IN ('local_completed', 'sync_failed', 'validating',
                                 'pending_review')
                   AND next_attempt_at <= ?
+                  AND (? IS NULL OR submission_owner = ?)
                 ORDER BY updated_at ASC
                 LIMIT ?
                 """,
-                (current, max(1, min(int(limit), 100))),
+                (current, owner, owner, max(1, min(int(limit), 100))),
             ).fetchall()
         return [self._item(row) for row in rows]
 
@@ -305,6 +357,10 @@ class Outbox:
             "next_chunk_index",
             "review_reason",
             "remote_state",
+            "execution_code",
+            "submission_owner",
+            "submission_revision",
+            "submission_payload",
         }
         unknown = set(changes) - allowed
         if unknown:
@@ -358,11 +414,14 @@ class Outbox:
         item = self.get(execution_uuid)
         if item is None:
             raise KeyError(execution_uuid)
-        if item.state == "approved":
+        if item.state in {"approved", "uploaded"}:
             return item
+        if item.state in {"rejected", "needs_verification"} and item.manifest.get("archive_protocol") == "reliability_v1_csv":
+            raise ValueError("驳回后请重新核实并提交")
         return self.update(
             execution_uuid,
             state="local_completed",
+            submission_payload="" if item.state == "rejected" else item.submission_payload,
             next_attempt_at=0,
             last_error="",
         )

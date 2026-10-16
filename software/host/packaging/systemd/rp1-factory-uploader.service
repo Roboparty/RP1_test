@@ -1,23 +1,23 @@
 [Unit]
-Description=RP1 factory execution-bundle uploader
-After=network-online.target rp1-factory-gateway.service
+Description=RP1 test HMI execution-bundle uploader
+After=network-online.target rp1-test-gateway.service
 Wants=network-online.target
-ConditionPathExists=/etc/rp1-factory-hmi/secrets/machine-token
+ConditionPathExists=/etc/rp1-test-hmi/enable-standalone-uploader
 
 [Service]
 Type=simple
-User=rp1-factory-gateway
+User=rp1-test-gateway
 Group=rp1-factory
-EnvironmentFile=/etc/rp1-factory-hmi/gateway.env
-EnvironmentFile=-/etc/rp1-factory-hmi/uploader.env
-ExecStart=/opt/rp1-factory-hmi/uploader/rp1-factory-uploader
+EnvironmentFile=/etc/rp1-test-hmi/gateway.env
+EnvironmentFile=-/etc/rp1-test-hmi/uploader.env
+ExecStart=/opt/rp1-test-hmi/uploader/rp1-factory-uploader
 Restart=on-failure
 RestartSec=5
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectHome=true
 ProtectSystem=strict
-ReadWritePaths=/var/lib/rp1-factory-hmi
+ReadWritePaths=/var/lib/rp1-test-hmi
 
 [Install]
 WantedBy=multi-user.target

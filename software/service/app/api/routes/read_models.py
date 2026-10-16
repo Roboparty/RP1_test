@@ -25,7 +25,7 @@ from app.schemas.read_models import (
 router = APIRouter(prefix="/api/v1", tags=["read-models"])
 AssetKindFilter = Annotated[Literal["WHOLE_MACHINE", "MODULE"] | None, Query()]
 TargetPartFilter = Annotated[
-    Literal["SARM", "SLEG", "SYS", "UPPER", "LOWER", "CHEST", "HEAD", "BAT"] | None,
+    Literal["ARM", "SARM", "LEG", "SLEG", "SYS", "UPPER", "LOWER", "CHEST", "HEAD", "BAT"] | None,
     Query(),
 ]
 PageLimit = Annotated[int, Query(ge=1, le=100)]
@@ -69,6 +69,11 @@ def test_case_detail(
             identifier, limit=limit, cursor=cursor
         )
     )
+
+
+@router.get("/executions/live", response_model=DataEnvelope[ExecutionList])
+def live_executions(session: DbSession) -> DataEnvelope[ExecutionList]:
+    return DataEnvelope(data=ReadModelRepository(session).live_executions())
 
 
 @router.get("/executions/{identifier}", response_model=DataEnvelope[ExecutionDetail])

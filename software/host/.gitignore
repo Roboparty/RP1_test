@@ -3,20 +3,30 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.ruff_cache/
 build/
 dist/
 *.spec
 factory_data/
+.local-runtime/
+.local-state/
 motors/build/
 motors/build-*/
 motors/install/
 motors/log/
 
-.runtime/
+# Local credentials and runtime databases must never enter source control.
 .env
 .env.*
 !.env.example
+secrets/
+**/secrets/
+*.pem
+*.key
+*.p12
+*.pfx
+*.sqlite
 *.sqlite3
 *.sqlite3-*
-*.dump
-secrets/
+*.db
+*.deb

@@ -13,6 +13,7 @@ import shutil
 import statistics
 import tarfile
 import tempfile
+import threading
 import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -437,8 +438,8 @@ def _build_verdict(
     for joint in joints:
         name = str(joint["joint_name"])
         maximum(
-            f"{name}.temperature_rise_c",
-            joint["temperature_rise_c"],
+            f"{name}.temperature_peak_rise_c",
+            joint["temperature_peak_rise_c"],
             "max_temperature_rise_c",
             "°C",
             product_failure=True,
@@ -512,6 +513,11 @@ def _build_verdict(
     elif blocked_names:
         status = "blocked"
         reasons = [f"blocked rule: {name}" for name in sorted(blocked_names)]
+    elif criteria_version == "UNCONFIGURED" or any(rule["result"] == "not_evaluated" for rule in rules):
+        status = "unconfigured"
+        reasons = [f"unconfigured rule: {rule['name']}" for rule in rules if rule["result"] == "not_evaluated"]
+        if not reasons:
+            reasons = ["acceptance criteria not configured"]
     else:
         status = "passed"
         reasons = []
@@ -561,7 +567,7 @@ def _module_metrics(
                 ),
                 "worst_joint": str(worst["joint_name"]),
                 "max_temperature_rise_c": _maximum(
-                    item["temperature_rise_c"] for item in items
+                    item["temperature_peak_rise_c"] for item in items
                 ),
                 "max_torque_utilization": _maximum(
                     item["torque_utilization"] for item in items
@@ -661,26 +667,31 @@ def _render_report(summary: Mapping[str, Any], manifest_identity: Mapping[str, A
     timing = summary["timing"]
     quality = summary["quality"]
     verdict = summary["verdict"]
+    clock_missing = manifest_identity.get("timestamp_provenance") == "missing"
     lines = [
-        f"# Factory aging report: {summary['test_id']}",
+        f"# Factory aging report: {manifest_identity.get('execution_code') or summary['test_id']}",
         "",
         f"- Execution UUID: `{summary['execution_uuid']}`",
+        f"- Local record ID: `{summary['test_id']}`",
         f"- Test case: `{manifest_identity['test_case_id']}`",
         f"- Sample: `{manifest_identity['sample_id']}`",
         f"- Bench/station: `{manifest_identity['bench_id']}` / `{manifest_identity.get('station_id', '')}`",
         f"- Operator: `{manifest_identity.get('operator_id', '')}`",
-        f"- Started: {timing['started_at']}",
-        f"- Ended: {timing['ended_at']}",
-        f"- Active / wall / paused seconds: {timing['active_seconds']:.3f} / {timing['wall_seconds']:.3f} / {timing['paused_seconds']:.3f}",
+        f"- Started: {'未记录（历史 CSV 缺少绝对时间）' if clock_missing else timing['started_at']}",
+        f"- Ended: {'未记录' if clock_missing else timing['ended_at']}",
+        (f"- Active seconds: {timing['active_seconds']:.3f}; wall / paused seconds: 未记录" if clock_missing else
+         f"- Active / wall / paused seconds: {timing['active_seconds']:.3f} / {timing['wall_seconds']:.3f} / {timing['paused_seconds']:.3f}"),
         f"- Completed cycles: {timing['completed_cycles']}",
         "",
-        f"## Verdict: {str(verdict['status']).upper()}",
+        f"## Verdict: {'UNCONFIGURED / 未配置判据' if verdict['criteria_version'] == 'UNCONFIGURED' else str(verdict['status']).upper()}",
         "",
         f"Criteria version: `{verdict['criteria_version']}`",
         "",
     ]
     if verdict["reasons"]:
         lines.extend(f"- {reason}" for reason in verdict["reasons"])
+    elif verdict["criteria_version"] == "UNCONFIGURED":
+        lines.append("- Acceptance criteria not configured / 未配置正式合格判据。")
     else:
         lines.append("- All configured acceptance rules passed.")
     lines.extend(
@@ -753,6 +764,7 @@ class ReportManager:
         self.exports_root = self.data_root / "exports"
         self.executions_root.mkdir(parents=True, exist_ok=True)
         self.exports_root.mkdir(parents=True, exist_ok=True)
+        self._review_lock = threading.RLock()
 
     def finalize(
         self,
@@ -874,6 +886,11 @@ class ReportManager:
 
     def rebuild(self, test_id: str) -> ReportResult:
         execution = self.execution_dir(test_id)
+        # Rebuilding derived analysis must retain append-only human history.
+        reviews = {
+            path.name: path.read_bytes()
+            for path in (execution / "analysis").glob("operator_review*.json")
+        }
         context_path = execution / "config/execution.json"
         if context_path.is_file():
             context = json.loads(context_path.read_text(encoding="utf-8"))
@@ -908,11 +925,14 @@ class ReportManager:
             else {}
         )
         log_path = execution / "logs/native.log"
-        return self.finalize(
+        result = self.finalize(
             execution / TELEMETRY_PATH,
             context,
             native_log=log_path if log_path.is_file() else None,
         )
+        for name, payload in reviews.items():
+            _write_fsynced(result.execution_dir / "analysis" / name, payload)
+        return result
 
     def recover_orphans(self, record_root: Path | str) -> list[ReportResult]:
         results: list[ReportResult] = []
@@ -925,15 +945,12 @@ class ReportManager:
                 context = json.loads(sidecar.read_text(encoding="utf-8"))
             else:
                 _, _, times, _ = _read_csv(csv_path)
-                stat = csv_path.stat()
                 active = max(times, default=0.0)
-                ended = _utc_iso(stat.st_mtime)
-                started = _utc_iso(stat.st_mtime - active)
                 context = {
                     "execution_uuid": str(
                         uuid.uuid5(
                             uuid.NAMESPACE_URL,
-                            f"rp1-factory-hmi:{test_id}:{_sha256(csv_path)}",
+                            f"rp1-history-sha256:{_sha256(csv_path)}",
                         )
                     ),
                     "test_id": test_id,
@@ -942,8 +959,13 @@ class ReportManager:
                     "bench_id": "unknown",
                     "station_id": "",
                     "operator_id": "",
-                    "started_at": started,
-                    "ended_at": ended,
+                    "origin": "HISTORY",
+                    "timestamp_provenance": "missing",
+                    "machine_status": "unknown",
+                    "test_name": "",
+                    "actual_object": "",
+                    "started_at": "1970-01-01T00:00:00Z",
+                    "ended_at": "1970-01-01T00:00:00Z",
                     "active_seconds": active,
                     "completed_cycles": 0,
                     "record_rate_hz": (
@@ -972,6 +994,32 @@ class ReportManager:
                 encoding="utf-8"
             )
         )
+
+    def write_operator_review(self, test_id: str, review: Mapping[str, Any], *, central_analysis: Mapping[str, Any] | None = None) -> Path:
+        from factory_hmi.desktop.operator_review import review_package
+        unknown = set(review) - {"tester", "bench", "station_id", "outcome", "notes", "analysis", "verified_status", "operator_summary", "submission_reason", "discrepancy_reason", "test_name", "actual_object"}
+        if unknown:
+            raise ValueError("核实只能修改人员、工位、人工结论和备注，禁止修改采集事实：" + "、".join(sorted(unknown)))
+        summary = self.summary(test_id)
+        if central_analysis:
+            summary["central_analysis"] = dict(central_analysis)
+        body = review_package(
+            tester=str(review.get("tester") or ""), bench=str(review.get("bench") or ""),
+            station_id=str(review.get("station_id") or ""), outcome=str(review.get("outcome") or ""),
+            notes=str(review.get("notes") or ""), discrepancy_reason=str(review.get("discrepancy_reason") or ""),
+            test_name=str(review.get("test_name") or ""), actual_object=str(review.get("actual_object") or ""),
+            summary=summary,
+        )
+        directory = self.execution_dir(test_id) / "analysis"
+        directory.mkdir(exist_ok=True)
+        path = directory / "operator_review.json"
+        with self._review_lock:
+            previous = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+            body["revision"] = int(previous.get("revision") or 0) + 1
+            body["verified_at"] = _utc_iso()
+            _write_fsynced(directory / f"operator_review.v{body['revision']}.json", _json_bytes(body))
+            _write_fsynced(path, _json_bytes(body))
+        return path
 
     def summary(self, test_id: str) -> dict[str, Any]:
         return json.loads(
@@ -1010,12 +1058,18 @@ class ReportManager:
                 {
                     "execution_uuid": manifest["execution_uuid"],
                     "test_id": manifest["test_id"],
+                    "execution_code": manifest.get("execution_code", ""),
                     "sample_id": manifest["sample_id"],
+                    "recording_scope": manifest.get("recording_scope", "platform"),
                     "station_id": manifest.get("station_id", ""),
                     "operator_id": manifest.get("operator_id", ""),
-                    "started_at": manifest["started_at"],
-                    "ended_at": manifest["ended_at"],
-                    "verdict": summary["verdict"]["status"],
+                    "test_name": manifest.get("test_name", ""),
+                    "actual_object": manifest.get("actual_object", ""),
+                    "bench_id": manifest.get("bench_id", ""),
+                    "origin": manifest.get("origin", "HMI"),
+                    "started_at": "" if manifest.get("timestamp_provenance") == "missing" else manifest["started_at"],
+                    "ended_at": "" if manifest.get("timestamp_provenance") == "missing" else manifest["ended_at"],
+                    "verdict": "未配置判据" if summary["verdict"].get("criteria_version") == "UNCONFIGURED" or summary["verdict"]["status"] == "unconfigured" else summary["verdict"]["status"],
                     "bundle_path": str(
                         self.exports_root / f"{manifest['test_id']}.tar.gz"
                     ),
@@ -1039,7 +1093,9 @@ class ReportManager:
             value.get("sample_id") or value.get("robot_id") or "unknown"
         )
         value["bench_id"] = str(
-            value.get("bench_id") or value.get("station_id") or "unknown"
+            value.get("bench_id")
+            or (value.get("station_id") if value.get("recording_scope") != "local" else None)
+            or "unknown"
         )
         value["started_at"] = _utc_iso(value.get("started_at"))
         value["ended_at"] = _utc_iso(
@@ -1062,7 +1118,14 @@ class ReportManager:
         allowed = {
             "execution_uuid",
             "test_id",
+            "recording_scope",
+            "execution_code",
             "campaign_id",
+            "cycle_id",
+            "segment_id",
+            "asset_id",
+            "configuration_id",
+            "test_case_version_id",
             "test_case_id",
             "test_case_version",
             "sample_id",
@@ -1070,6 +1133,9 @@ class ReportManager:
             "robot_id",
             "station_id",
             "operator_id",
+            "stage_code",
+            "stage_name",
+            "subject_map",
             "started_at",
             "ended_at",
             "active_seconds",
@@ -1085,6 +1151,7 @@ class ReportManager:
             "entries",
             "software",
             "calibration_version",
+            "test_name", "actual_object", "origin", "machine_status", "timestamp_provenance",
         }
         return {
             key: value
@@ -1118,6 +1185,13 @@ class ReportManager:
                 if context.get("campaign_id") is not None
                 else None
             ),
+            "cycle_id": str(context.get("cycle_id") or ""),
+            "segment_id": str(context.get("segment_id") or ""),
+            "asset_id": str(context.get("asset_id") or ""),
+            "configuration_id": str(context.get("configuration_id") or ""),
+            "test_case_version_id": str(
+                context.get("test_case_version_id") or ""
+            ),
             "test_case_id": str(context["test_case_id"]),
             "test_case_version": str(context.get("test_case_version") or ""),
             "sample_id": str(context["sample_id"]),
@@ -1125,12 +1199,20 @@ class ReportManager:
             "robot_id": str(context.get("robot_id") or ""),
             "station_id": str(context.get("station_id") or ""),
             "operator_id": str(context.get("operator_id") or ""),
+            "stage_code": str(context.get("stage_code") or "AGING"),
+            "stage_name": str(context.get("stage_name") or "老化运行"),
+            "subject_map": dict(context.get("subject_map") or {}),
             "status": str(summary["verdict"]["status"]),
             "started_at": str(summary["timing"]["started_at"]),
             "ended_at": str(summary["timing"]["ended_at"]),
             "generated_at": str(summary["timing"]["ended_at"]),
             "summary_path": SUMMARY_PATH,
             "telemetry_path": TELEMETRY_PATH,
+            "test_name": str(context.get("test_name") or context["test_case_id"]),
+            "actual_object": str(context.get("actual_object") or context["sample_id"]),
+            "origin": str(context.get("origin") or ("OTHER" if context["test_case_id"] == "OTHER" else "HMI")),
+            "machine_status": str(context.get("machine_status") or context.get("outcome") or "unknown"),
+            "timestamp_provenance": str(context.get("timestamp_provenance") or "recorded"),
             "software": dict(context.get("software") or {}),
             "provenance": {
                 "config_sha256": hashlib.sha256(config_bytes).hexdigest(),
@@ -1140,6 +1222,10 @@ class ReportManager:
                 ),
             },
         }
+        if "recording_scope" in context:
+            identity["recording_scope"] = str(context["recording_scope"])
+        if "execution_code" in context:
+            identity["execution_code"] = str(context["execution_code"])
         return identity
 
 

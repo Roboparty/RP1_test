@@ -1,0 +1,63 @@
+{
+  "source": "RP1.3-交互头-0918.glb",
+  "sourceSha256": "b371891e17c01137b4a988094cd6c02fab870e0bde019e331a34fda6b577f2ca",
+  "generatedAt": "2026-09-18",
+  "pipeline": "geometry-preserving split, meshoptimizer simplification, EXT_meshopt_compression",
+  "assets": {
+    "SYS": {
+      "file": "rp1-whole-unit-web.glb",
+      "sourcePart": "upper-body + lower-body",
+      "bytes": 2581632,
+      "triangles": 256982
+    },
+    "UPPER": {
+      "file": "rp1-upper-body-product-white.glb",
+      "sourcePart": "RP1.3-upper-body-static-web-0918 / product-white",
+      "bytes": 4325172,
+      "triangles": 473022,
+      "poster": "../model-posters/upper-product-white.webp"
+    },
+    "LOWER": {
+      "file": "rp1-lower-body-product-white.glb",
+      "sourcePart": "RP1.3-product-white-parts-web-0918 / lower-body",
+      "bytes": 5155076,
+      "triangles": 843392,
+      "poster": "../model-posters/lower-product-white.png"
+    },
+    "CHEST": {
+      "file": "rp1-torso-product-white.glb",
+      "sourcePart": "RP1.3-product-white-parts-web-0918 / torso",
+      "bytes": 853968,
+      "triangles": 140404,
+      "poster": "../model-posters/torso-product-white.png"
+    },
+    "HEAD": {
+      "file": "rp1-head-product-white.glb",
+      "sourcePart": "RP1.3-head-web-lod-0918 / product-white",
+      "bytes": 1101032,
+      "triangles": 89043,
+      "poster": "../model-posters/head-product-white.png"
+    },
+    "BAT": {
+      "file": "rp1-battery-web.glb",
+      "sourcePart": "RP1.3-product-white-parts-web-0918 / 13s2p-battery-product-white",
+      "sourceSha256": "5afe807c4db00a95a612376e3f34ae880bd77472ea4654264da37865f1415fb7",
+      "bytes": 542484,
+      "triangles": 135964
+    },
+    "SARM": {
+      "file": "rp1-single-arm-product-white.glb",
+      "sourcePart": "RP1.3-product-white-parts-web-0918 / single-arm",
+      "bytes": 3809356,
+      "triangles": 619511,
+      "poster": "../model-posters/single-arm-product-white.png"
+    },
+    "SLEG": {
+      "file": "rp1-single-leg-product-white.glb",
+      "sourcePart": "RP1.3-product-white-parts-web-0918 / single-leg",
+      "bytes": 2318112,
+      "triangles": 369348,
+      "poster": "../model-posters/single-leg-product-white.png"
+    }
+  }
+}
