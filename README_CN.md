@@ -66,9 +66,7 @@ RP1 Test 将台架、设备控制、过程记录和可靠性数据放在同一�
 
 ### 上肢动态工况
 
-| 视角一 | 视角二 |
-| :---: | :---: |
-| <img src="docs/media/showcase/upper-body-dynamic-front.gif" width="300" alt="上肢动态测试视角一"> | <img src="docs/media/showcase/upper-body-dynamic-side.gif" width="300" alt="上肢动态测试视角二"> |
+<img src="docs/media/showcase/upper-body-dynamic-front.gif" width="300" alt="上肢动态测试">
 
 动图为原视频的 6 秒节选，保持原速和画面比例。素材索引与复现方式见 [media](docs/media/README.md)。
 

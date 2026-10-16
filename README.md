@@ -66,9 +66,7 @@ Select a screenshot to open its full-resolution image. The software also include
 
 ### Upper-body dynamic motion
 
-| View one | View two |
-| :---: | :---: |
-| <img src="docs/media/showcase/upper-body-dynamic-front.gif" width="300" alt="Upper-body dynamic test, view one"> | <img src="docs/media/showcase/upper-body-dynamic-side.gif" width="300" alt="Upper-body dynamic test, view two"> |
+<img src="docs/media/showcase/upper-body-dynamic-front.gif" width="300" alt="Upper-body dynamic test">
 
 Animations are six-second excerpts at the original speed and aspect ratio. See the [media index](docs/media/README.md) for sources and reproduction instructions.
 
