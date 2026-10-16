@@ -1,0 +1,168 @@
+{
+  "format": "rp1-readme-media/1",
+  "assets": [
+    {
+      "source": "台架渲染2+快拆结构.jpg",
+      "source_bytes": 85646,
+      "source_sha256": "94fcfa2512271bcb91bde617d0b89befe93cb991cecf629933e299e3092761da",
+      "output": "arm-rig-quick-release.jpg",
+      "output_bytes": 85646,
+      "output_sha256": "94fcfa2512271bcb91bde617d0b89befe93cb991cecf629933e299e3092761da",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "胸腔台架渲染.jpg",
+      "source_bytes": 95750,
+      "source_sha256": "167a11a665b782e69d32c2c839f496c99fdbaf6985a40354e56746edb190ea54",
+      "output": "torso-rig.jpg",
+      "output_bytes": 95750,
+      "output_sha256": "167a11a665b782e69d32c2c839f496c99fdbaf6985a40354e56746edb190ea54",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "腿部台架渲染.jpg",
+      "source_bytes": 101998,
+      "source_sha256": "7a5f7370b8a96aa226f6a33e52b22252789b36ccf4e775559ab00705357861ba",
+      "output": "leg-load-rig.jpg",
+      "output_bytes": 101998,
+      "output_sha256": "7a5f7370b8a96aa226f6a33e52b22252789b36ccf4e775559ab00705357861ba",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "手臂测试数据大屏.jpg",
+      "source_bytes": 845063,
+      "source_sha256": "ee2c405e74e18212e59a20afeb56fa9e2e2e87643c38af3032367c7e769b9e0e",
+      "output": "arm-dashboard.jpg",
+      "output_bytes": 845063,
+      "output_sha256": "ee2c405e74e18212e59a20afeb56fa9e2e2e87643c38af3032367c7e769b9e0e",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "下肢测试数据大屏.jpg",
+      "source_bytes": 857753,
+      "source_sha256": "0ded72bf39b0df47a2eada3e30936a47222fd78639581c353409ce03a2882431",
+      "output": "lower-body-dashboard.jpg",
+      "output_bytes": 857753,
+      "output_sha256": "0ded72bf39b0df47a2eada3e30936a47222fd78639581c353409ce03a2882431",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "上位机1.jpg",
+      "source_bytes": 599298,
+      "source_sha256": "758a38e3af0e87fe818ee9fb4b9ac53c1813e40d96b4b7ebea76b70d66c4323e",
+      "output": "plc-control.jpg",
+      "output_bytes": 599298,
+      "output_sha256": "758a38e3af0e87fe818ee9fb4b9ac53c1813e40d96b4b7ebea76b70d66c4323e",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "上位机2.jpg",
+      "source_bytes": 661634,
+      "source_sha256": "8a1fbad9fafe87f968ef2f1cb34fe46170f138f8eabc5d0246a7cab346710ee4",
+      "output": "aging-workspace.jpg",
+      "output_bytes": 661634,
+      "output_sha256": "8a1fbad9fafe87f968ef2f1cb34fe46170f138f8eabc5d0246a7cab346710ee4",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "上位机3.jpg",
+      "source_bytes": 207794,
+      "source_sha256": "54ed69375144bba1f4d173b85adf1098fe9635d8f43ee52e85f2c37053ed7be1",
+      "output": "motor-monitor.jpg",
+      "output_bytes": 207794,
+      "output_sha256": "54ed69375144bba1f4d173b85adf1098fe9635d8f43ee52e85f2c37053ed7be1",
+      "transform": "Unmodified supplied JPEG"
+    },
+    {
+      "source": "2.5kg单臂负载.mp4",
+      "source_bytes": 135004443,
+      "source_sha256": "ca2f66065a476cd6f8f93363562ddd5d25b06a5f097ecf5c936a0ce0021ae5db",
+      "output": "arm-load-2_5kg.gif",
+      "output_bytes": 2616059,
+      "output_sha256": "f2ec1f0e32377f98019b409df0a9a53ba96765cef4a2325aec52410ad5116f5e",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 2,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    },
+    {
+      "source": "3.5kg单臂负载.mp4",
+      "source_bytes": 7902482,
+      "source_sha256": "f491ddbce283ad764bec4d9171b27a2d840bb3d717a022467343685b95c40de8",
+      "output": "arm-load-3_5kg.gif",
+      "output_bytes": 2655289,
+      "output_sha256": "d6e68c5916ff0888c76141bcec557c77c8b0475d4402553445d3b362b3870fa8",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 3,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    },
+    {
+      "source": "5.5kg单臂负载.mp4",
+      "source_bytes": 7704837,
+      "source_sha256": "fb435020cd8331b3ee3027ce6c527088d37d6dfb0f1376d51d20a41cbd8cfbdf",
+      "output": "arm-load-5_5kg.gif",
+      "output_bytes": 2257014,
+      "output_sha256": "810e86c0fa4dc2ab9fc7466e7a607a0e175886e0827b94adbb29a57bd531fe7d",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 3,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    },
+    {
+      "source": "50kg负载踏步.mp4",
+      "source_bytes": 4565734,
+      "source_sha256": "943b61ba5cf6db7374beed79b70cf08280044475ab57600a49ef604e7ccdddeb",
+      "output": "leg-load-50kg-stepping.gif",
+      "output_bytes": 3212929,
+      "output_sha256": "2256362667cb3476a12e5213481e91a3250021ef62aa6510fc52068c60909291",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 2,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    },
+    {
+      "source": "50kg负载顿起.mp4",
+      "source_bytes": 2546960,
+      "source_sha256": "7e2adf616fc6ecbfdf574edd1e95e316342d33cca36286a81eeaeba1b0f865ae",
+      "output": "leg-load-50kg-rise.gif",
+      "output_bytes": 3156747,
+      "output_sha256": "16a683cf2f500e88882db064f185b504f4ce731427f7d372aca2e66e95997513",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 1,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    },
+    {
+      "source": "上肢3ms跑步测试视频.mp4",
+      "source_bytes": 105065167,
+      "source_sha256": "eae5e81a221242085c27d09217023a6feac28575528fcdaafa737f999c3a9d5b",
+      "output": "upper-body-dynamic-front.gif",
+      "output_bytes": 2691603,
+      "output_sha256": "6ca68739ff27ecd89c781215d33f9364056826aa757ab9bdb134a52de65d7ed6",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 1,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    },
+    {
+      "source": "上肢3ms跑步视频2.mp4",
+      "source_bytes": 81708938,
+      "source_sha256": "24e5290beab6633007aad71773a7911f8a16cf72744f4b90051f5942d36ed372",
+      "output": "upper-body-dynamic-side.gif",
+      "output_bytes": 2795886,
+      "output_sha256": "fcab278bd53a293af7b0bd9897625ac9a7d21a7a839082e54cf70455f57be07f",
+      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
+      "clip_start_seconds": 1,
+      "clip_duration_seconds": 6,
+      "fps": 8,
+      "width": 300
+    }
+  ]
+}
