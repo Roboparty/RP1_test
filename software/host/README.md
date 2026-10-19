@@ -1,10 +1,10 @@
-# RP1 TEST HMI（PLC/CAN）
+# RP1 TEST HMI
 
-PySide6桌面、本机FastAPI网关、Modbus TCP PLC、SocketCAN控制和本地记录源码。本版包含共享PLC控制、命令版本/回执、模拟/监控模式、趋势、故障处理、用例选择、核实、在线工位和 `reliability_v1` 归档。
+PySide6 桌面、本机 FastAPI 网关、Modbus TCP PLC、Linux SocketCAN 与本地记录。包含多窗口共享 PLC 控制、回执、模拟/监控模式、趋势、电机故障恢复、用例选择、核实和 `reliability_v1` 归档。
 
 ## 离线运行
 
-在 `software/` 中：
+在 `software/` 执行：
 
 ```bash
 python3 -m venv .venv-hmi
@@ -12,33 +12,29 @@ python3 -m venv .venv-hmi
 .venv-hmi/bin/python host/launch.py --offline-check
 ```
 
-该入口强制专用mock配置，禁用CAN和平台。仅验证网关可加 `--gateway-only --duration 3`。默认端口8766；`--port`、`--state-dir` 可隔离实例。
+离线入口强制专用 mock PLC，禁用 CAN 和平台。仅验证网关可加 `--gateway-only --duration 3`；`--port`、`--state-dir` 可隔离实例。普通启动会读取控制配置，连接控制模式可能写 PLC。
 
-安装包使用 `rp1-test-hmi` 启动；`rp1-test-hmi status`、`rp1-test-hmi stop` 管理自己的实例。配置、日志和数据保存在用户状态目录。
+安装包入口为 `rp1-test-hmi`；同一状态目录下用 `status`、`stop` 查询和正常停止。配置、日志、记录和队列保存在用户状态目录，升级流程见 [运维](../docs/operations.md)。
 
-## 源码
+## 操作与协议
+
+- [构建与配置](docs/build.md)：源码运行、依赖、SDK、安装包和设备范围。
+- [PLC 对接](docs/plc-integration.md)：版本矩阵、反馈、时限、共享控制与停机。
+- [电机故障恢复](docs/MOTOR_FAULT_RECOVERY.md)：保持失能复位、新反馈和重新使能。
+- [平台数据流程](../docs/data-workflow.md)：本地记录、归档、核实、审批及失败恢复。
+
+平台登录填写实际 HTTPS 地址与本站 CA。在线心跳独立于上传；记录结束并核实后显式提交，支持续传和驳回重提。“其他”须填写测试名称、对象和工位。
+
+## 源码入口
 
 | 目录 | 职责 |
 |---|---|
-| `factory_hmi/desktop/` | 测试/PLC页、模块窗口、监控和核实 |
-| `factory_hmi/gateway/` | 本机API、WebSocket、会话与租约 |
-| `factory_hmi/plc/` | Modbus、状态机、共享控制、时效与故障 |
-| `factory_hmi/core/` | 后端、测试服务、记录与报告 |
-| `factory_hmi/sync/` | 平台会话、presence、SQLite队列与归档 |
-| `scripts/`、`factory_hmi/config/` | 采样、部位与设备配置模板 |
-| `tools/`、`packaging/`、`motors/` | 构建、安装入口与SDK源码 |
+| `factory_hmi/desktop/` | 测试/PLC 页面、多窗口、趋势和核实 |
+| `factory_hmi/gateway/` | 本机 API、WebSocket、会话与租约 |
+| `factory_hmi/plc/` | Modbus、状态机、共享控制、反馈和失效保护 |
+| `factory_hmi/core/` | 电机后端、控制、轨迹、记录和报告 |
+| `factory_hmi/sync/` | 平台会话、心跳、SQLite 队列与归档 |
+| `scripts/`、`factory_hmi/config/` | 采样与设备配置模板 |
+| `tools/`、`packaging/`、`motors/` | 构建、安装入口和 SDK 源码 |
 
-## 平台与协议
-
-从 [软件主入口](../README.md) 启动匹配平台，网页登录改密后在HMI登录。配置实际HTTPS地址和本站CA。在线心跳独立；CSV先保存本地，核实并显式提交后归档，支持恢复、审批和驳回重提。“其他”填写名称、对象和工位后可先归档。
-
-[V1.0](docs/HOST_MODBUS_TCP_PROTOCOL_V1.0.md) · [V1.1](docs/HOST_MODBUS_TCP_PROTOCOL_V1.1.md) · [V1.2](docs/HOST_MODBUS_TCP_PROTOCOL_V1.2.md) · [PLC映射](docs/PLC_INTERFACE_MAPPING.md) · [本地构建](docs/LOCAL_CONTROL_BUILD.md) · [故障恢复](docs/MOTOR_FAULT_RECOVERY.md)
-
-在 `software/` 执行 `bash scripts/build-hmi.sh`，输出到 `host/dist/`。SDK从源码构建，保留原许可通知。
-
-```bash
-cd software/host
-PYTHONDONTWRITEBYTECODE=1 QT_QPA_PLATFORM=offscreen python3 -m pytest tests -q
-```
-
-软件修改和安装不启动现场PLC/CAN；实际工位按协议与设备配置操作。
+安装包输出至 `host/dist/`，二进制通过 Releases 分发。HMI 有独立控制与记录实现，不依赖可选 test-runner。软件检查、构建或安装不授权启动真实 PLC/CAN。

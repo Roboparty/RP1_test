@@ -3,6 +3,7 @@
 from pathlib import Path
 import re
 import subprocess
+from urllib.parse import unquote, urlsplit
 
 SOFTWARE = Path(__file__).resolve().parents[1]
 REPOSITORY = SOFTWARE.parent
@@ -31,15 +32,27 @@ for name in sorted(set(filter(None, names))):
         errors.append('Secret signature found: ' + name)
     if ('/home/' + 'shn/') in body:
         errors.append('Personal absolute path: ' + name)
-for relative in ('README.md', 'service/README.md', 'frontend/README.md', 'host/README.md', 'docs/OPERATIONS.md'):
+for relative in ('README.md', 'service/README.md', 'database/README.md', 'frontend/README.md',
+                 'host/README.md', 'docs/operations.md', 'docs/data-workflow.md',
+                 'host/docs/build.md', 'host/docs/plc-integration.md'):
     path = SOFTWARE / relative
     if not path.exists():
         errors.append('Missing document: ' + relative)
         continue
-    for target in re.findall(r'\]\(([^)]+)\)', path.read_text()):
-        target = target.split('#', 1)[0]
-        if target and not target.startswith(('https://', 'http://', 'mailto:')) and not (path.parent / target).exists():
-            errors.append(f'Broken link in {relative}: {target}')
+for name in sorted(set(filter(None, names))):
+    path = REPOSITORY / name
+    if path.suffix != '.md' or not path.is_file():
+        continue
+    for target in re.findall(r'\]\(([^)]+)\)', path.read_text(encoding='utf-8')):
+        if target.startswith('<') and '>' in target:
+            target = target[1:target.index('>')]
+        parsed = urlsplit(target)
+        if parsed.scheme or parsed.netloc or not parsed.path:
+            continue
+        local_path = unquote(parsed.path)
+        linked = REPOSITORY / local_path.lstrip('/') if local_path.startswith('/') else path.parent / local_path
+        if not linked.exists():
+            errors.append(f'Broken link in {name}: {target}')
 if errors:
     raise SystemExit('\n'.join(errors))
-print('PASS software file hygiene and documentation links')
+print('PASS software file hygiene and repository documentation links')

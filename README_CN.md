@@ -22,11 +22,13 @@ RP1 Test 将台架、设备控制、过程记录和可靠性数据放在同一�
 
 | 要做什么 | 入口 |
 |---|---|
-| 启动测试大屏与可靠性平台 | [软件部署与使用](software/README.md) · [0.2.0 更新说明](software/docs/RELEASE-v0.2.0.md) |
+| 启动测试大屏与可靠性平台 | [软件总览](software/README.md) · [安装与运维](software/docs/operations.md) |
 | 运行或构建 PLC/CAN 上位机 | [HMI 源码、mock 运行与打包](software/host/README.md) |
 | 加工、装配模块测试台架 | [硬件总览](hardware/README.md) · [机械文件](hardware/mechanical/README.md) |
 | 选择方法并记录测试 | [18 项测试方法](test-cases/README.md) · [检查与执行记录](test-cases/checklist.md) |
 | 分析本地记录 | [离线分析工具与样例](data-analysis/README.md) |
+
+架构、数据流程和开发说明见 [文档导航](docs/README.md)。
 
 ## 软件界面
 
@@ -93,7 +95,7 @@ bash scripts/up.sh
 | [software/host/](software/host/README.md) | PLC/CAN 上位机、本机网关及构建工具 |
 | [software/service/](software/service/README.md) · [database/](software/database/README.md) | API、中央归档、Worker、数据库与迁移 |
 | [test-cases/](test-cases/README.md) | 整机方法、公共规则及执行检查表 |
-| [data-analysis/](data-analysis/README.md) · [test-runner/](software/test-runner/README.md) | 离线分析与独立轨迹工具 |
+| [data-analysis/](data-analysis/README.md) · [test-runner/](software/tools/test-runner/README.md) | 离线分析与独立轨迹工具 |
 | [独立遥测演示](software/examples/telemetry-demo/README.md) | InfluxDB/Grafana 合成示例 |
 
 测试准备参见 [公共规则](test-cases/common.md) 和 [参数清单](test-cases/open-items.md)。三个 Parasolid 总装模型下载：[RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip)；STEP、图纸和 BOM 见 [机械资料](hardware/mechanical/README.md)。

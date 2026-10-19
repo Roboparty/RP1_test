@@ -1,6 +1,8 @@
-# 采集接入契约
+# 演示采集接入契约
 
-上位机通过Service接入。采集端没有数据库凭据；每个服务主体绑定采集源及可写Campaign。
+本契约仅用于独立遥测演示的旧 ingestion，不能用于当前 `reliability_v1` CSV 归档、核实、审批或正式统计。
+
+演示客户端通过本目录的 Service 接入。采集端没有数据库凭据；每个服务主体绑定采集源及可写Campaign。
 
 ## 一次运行
 
@@ -15,7 +17,7 @@
 
 七个UUID是 `campaign_id`、`cycle_id`、`segment_id`、`asset_id`、`configuration_id`、`test_case_version_id`、`station_id`。必须来自同一有效上下文；演示初始化会生成这些值。
 
-每个请求携带 `Authorization: Bearer <service-key>` 和稳定的 `Idempotency-Key`。请求内容包括稳定 `producer_key`。同键同内容返回已有结果及 `replayed=true`，不同内容返回409；不要为同一离线批次每次生成新键。也可通过 `/producer-executions/{producer_execution_key}/...` 解析自己的来源运行键。
+每个请求携带 `Authorization: Bearer <service-key>` 和稳定的 `Idempotency-Key`。请求内容包括稳定 `producer_key`。同键同内容返回已有结果及 `replayed=true`，不同内容返回409；不要为同一离线批次每次生成新键。也可通过 `/api/v1/ingestion/executions/by-producer/{producer_execution_key}/...` 解析自己的来源运行键。
 
 ## 遥测规则
 

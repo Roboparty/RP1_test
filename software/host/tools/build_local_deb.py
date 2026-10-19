@@ -7,11 +7,41 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
+from urllib.parse import quote, unquote
 
 SOURCE = Path(__file__).resolve().parents[1]
+
+
+def copy_documentation(destination: Path) -> None:
+    documents = {SOURCE / "README.md": "README.zh_CN.md"}
+    for name in ("build.md", "plc-integration.md", "MOTOR_FAULT_RECOVERY.md",
+                 "HOST_MODBUS_TCP_PROTOCOL_V1.0.md", "HOST_MODBUS_TCP_PROTOCOL_V1.1.md",
+                 "HOST_MODBUS_TCP_PROTOCOL_V1.2.md", "windows_zlg_canfd.md"):
+        documents[SOURCE / "docs" / name] = name
+    for name in ("operations.md", "data-workflow.md"):
+        documents[SOURCE.parent / "docs" / name] = name
+
+    for source, name in documents.items():
+        def relocate_link(match: re.Match[str]) -> str:
+            target = match.group(1)
+            if target.startswith(("#", "/")) or re.match(r"[a-zA-Z][\w+.-]*:", target):
+                return match.group(0)
+            path, separator, fragment = target.partition("#")
+            resolved = (source.parent / unquote(path)).resolve()
+            if resolved in documents:
+                relative = documents[resolved]
+            else:
+                relative = "https://github.com/Roboparty/RP1_test/blob/main/" + quote(
+                    str(resolved.relative_to(SOURCE.parents[1])), safe="/"
+                )
+            return "](" + relative + (separator + fragment if separator else "") + ")"
+
+        body = re.sub(r"\]\(([^)]+)\)", relocate_link, source.read_text(encoding="utf-8"))
+        (destination / name).write_text(body, encoding="utf-8")
 
 
 def ignored(_directory: str, names: list[str]) -> set[str]:
@@ -102,12 +132,7 @@ def main() -> None:
     doc = package / "usr/share/doc/rp1-test-hmi"
     doc.mkdir(parents=True)
     shutil.copytree(SOURCE / "third-party-licenses", doc / "third-party-licenses")
-    shutil.copy2(SOURCE / "docs/LOCAL_CONTROL_BUILD.md", doc / "README.zh_CN.md")
-    for name in ("HOST_MODBUS_TCP_PROTOCOL_V1.0.md", "HOST_MODBUS_TCP_PROTOCOL_V1.1.md",
-                 "HOST_MODBUS_TCP_PROTOCOL_V1.2.md", "MOTOR_FAULT_RECOVERY.md"):
-        shutil.copy2(SOURCE / "docs" / name, doc / name)
-    shutil.copy2(SOURCE / "docs/PLC_CONTRACT_CHECKLIST.md", doc)
-    shutil.copy2(SOURCE.parent / "docs/TEST-DATA-APPROVAL.md", doc)
+    copy_documentation(doc)
     manifest = {
         str(p.relative_to(app)): hashlib.sha256(p.read_bytes()).hexdigest()
         for p in sorted(app.rglob("*")) if p.is_file() and not p.is_symlink() and app / "runtime" not in p.parents

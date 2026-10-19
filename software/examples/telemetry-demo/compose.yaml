@@ -74,7 +74,7 @@ services:
     image: python:3.12-slim
     environment: *influx-env
     volumes:
-      - ../../influxdb/scripts:/scripts:ro
+      - ./influxdb/scripts:/scripts:ro
     command: [python, /scripts/init.py, --wait-seconds, "45"]
     depends_on:
       influxdb:
@@ -138,8 +138,8 @@ services:
       - "127.0.0.1:${GRAFANA_PORT:-13000}:3000"
     volumes:
       - grafana-data:/var/lib/grafana
-      - ../../grafana/provisioning:/etc/grafana/provisioning:ro
-      - ../../grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
     depends_on:
       influx-init:
         condition: service_completed_successfully

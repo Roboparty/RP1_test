@@ -22,6 +22,6 @@ pip install -r requirements-dev.txt -c requirements.lock
 python -m pytest -c pytest.ini tests -m 'not integration' -q
 ```
 
-部署注入数据库、认证和归档目录设置。健康入口 `/healthz`、`/readyz`，OpenAPI `/docs`。文件位于共享持久目录，数据库保存索引及版本。
+部署注入数据库、认证和归档目录设置。健康入口 `/healthz`、`/readyz`，平台接口定义为 `/openapi.json`。文件位于共享持久目录，数据库保存索引及版本。
 
 旧SERVICE ingestion使用 [独立示例](../examples/telemetry-demo/README.md) 的服务，不连接新版平台数据库。

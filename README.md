@@ -22,11 +22,13 @@ RP1 Test brings test rigs, device control, recording and reliability data into o
 
 | Task | Entry point |
 |---|---|
-| Start the dashboard and reliability platform | [Software setup](software/README.md) · [0.2.0 changes](software/docs/RELEASE-v0.2.0.md) |
+| Start the dashboard and reliability platform | [Software overview](software/README.md) · [Installation and operations](software/docs/operations.md) |
 | Run or build the PLC/CAN HMI | [HMI source, mock mode and packaging](software/host/README.md) |
 | Manufacture and assemble a rig | [Hardware overview](hardware/README.md) · [Mechanical files](hardware/mechanical/README.md) |
 | Plan and record a test | [18 test methods](test-cases/README.md) · [Inspection and run record](test-cases/checklist.md) |
 | Analyze local recordings | [Offline tool and worked example](data-analysis/README.md) |
+
+See the [documentation index](docs/README.md) for architecture, data workflows and development.
 
 ## Software in Action
 
@@ -93,7 +95,7 @@ CSV files and reports are recorded locally first. After verification and explici
 | [software/host/](software/host/README.md) | PLC/CAN desktop, local gateway and build tools |
 | [software/service/](software/service/README.md) · [database/](software/database/README.md) | API, central archives, workers, database and migrations |
 | [test-cases/](test-cases/README.md) | Whole-robot methods, common rules and inspection records |
-| [data-analysis/](data-analysis/README.md) · [test-runner/](software/test-runner/README.md) | Offline analysis and trajectory tools |
+| [data-analysis/](data-analysis/README.md) · [test-runner/](software/tools/test-runner/README.md) | Offline analysis and trajectory tools |
 | [Standalone telemetry demo](software/examples/telemetry-demo/README.md) | Synthetic InfluxDB/Grafana example |
 
 For test preparation, see the [common rules](test-cases/common.md) and [parameter checklist](test-cases/open-items.md). Download the three Parasolid assemblies from [RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip); STEP files, drawings and BOMs are listed under [mechanical files](hardware/mechanical/README.md).

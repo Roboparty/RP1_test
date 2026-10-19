@@ -1,6 +1,6 @@
-# Service / API
+# 遥测演示 API
 
-FastAPI 服务连接上位机、PostgreSQL 和监控链路，提供运行注册、心跳、事件、遥测、附件元数据、结束记录和业务查询接口，管理身份权限、幂等写入与可靠性统计。
+本 FastAPI 服务属于独立遥测演示，提供运行注册、心跳、事件、遥测、附件元数据、结束记录和演示查询。其旧 `/api/v1/ingestion` 与数据库独立于当前 `reliability_v1`；不提供当前平台正式 CSV 归档、核实、审批及统计入口。当前平台见[软件入口](../../../README.md)。
 
 ## 代码阅读入口
 
@@ -22,7 +22,7 @@ FastAPI 服务连接上位机、PostgreSQL 和监控链路，提供运行注册�
 
 ## 启动与开发
 
-推荐使用[软件总览](../README.md)的Compose流程。单独开发可在本目录运行：
+推荐使用[演示总览](../README.md)的Compose流程。单独开发可在本目录运行：
 
 ```bash
 python -m venv .venv
@@ -45,7 +45,7 @@ python -m app.services.influx_worker
 ## 数据链路
 
 ```text
-上位机 / test-runner
+合成客户端 / 可选 test-runner
     → API：Bearer身份 + Idempotency-Key
     → PostgreSQL：事实 + 幂等收据 + 导出队列（同一事务）
     → influx-worker：重试写入
@@ -73,6 +73,6 @@ python -m app.services.influx_worker
 | `INFLUX_TOKEN` | Influx写入token，由部署注入 |
 | `INFLUX_TIMEOUT_SECONDS` | HTTP超时，默认20秒 |
 
-原始高频 CSV / 视频由上位机保存，API 登记文件引用与 SHA-256。有效运行时间、可靠性暴露时间和墙钟时长采用各自口径。合成运行在注册时设置 `source_metadata.source_kind=synthetic`，监控与分析应按此标签筛选。
+原始高频 CSV / 视频由运行工具保存，API 登记文件引用与 SHA-256。有效运行时间、可靠性暴露时间和墙钟时长采用各自口径。合成运行在注册时设置 `source_metadata.source_kind=synthetic`，监控与分析应按此标签筛选。
 
 真机控制由本机设备适配层负责，用例结果由事先确定的规则判定。业务查询与遥测展示不触发设备运动。

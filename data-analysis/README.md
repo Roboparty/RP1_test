@@ -12,7 +12,7 @@ python -m unittest discover -s data-analysis/tests
 
 生成 `summary.json` 和 `report.md`。合成输入、预期结果和手算核对见[样例说明](examples/README.md)。
 
-分析实际运行时，将输入路径换为 [test-runner](../software/test-runner/README.md) 生成的运行目录。Factory HMI 执行包先转换为下表的 CSV 与元数据格式。
+分析实际运行时，将输入路径换为 [test-runner](../software/tools/test-runner/README.md) 生成的运行目录。Factory HMI 执行包先转换为下表的 CSV 与元数据格式。
 
 ## 输入与统计
 
