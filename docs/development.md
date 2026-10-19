@@ -52,7 +52,6 @@ python3 launch.py --offline-check --gateway-only --duration 3
 python3 -m pip install -e './software/tools/test-runner[test]' -e './software/examples/telemetry-demo/demo-client[test]'
 python3 -m pytest -q software/tools/test-runner/tests
 python3 -m pytest -q software/examples/telemetry-demo/demo-client/tests
-python3 -m unittest discover -s data-analysis/tests
 python3 -m unittest discover -s software/examples/telemetry-demo/scripts/tests
 python3 -m unittest discover -s software/examples/telemetry-demo/influxdb/tests
 python3 software/examples/telemetry-demo/grafana/scripts/validate_dashboard.py
@@ -62,7 +61,7 @@ test-runner 的 ingestion 契约测试针对演示 API/schema，不针对当前�
 
 ## CI 与交付
 
-- `.github/workflows/tests.yml`：Python 3.10/3.12 可选工具、离线分析和演示合同，另行运行 HMI fake 后端及独立演示栈。
+- `.github/workflows/tests.yml`：Python 3.10/3.12 可选工具和演示合同，另行运行 HMI fake 后端及独立演示栈。
 - `.github/workflows/platform.yml`：空库 setup 和 lifecycle 使用不同 PostgreSQL 容器，另有前后端、部署守卫、HMI 构建和容器验收。
 - `software/scripts/check-release.py`：源码卫生、现行文档和仓库内部链接。
 

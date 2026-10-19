@@ -12,7 +12,7 @@ Test rigs · PLC/CAN HMI · Test dashboard · Data archives and analysis
 
 </div>
 
-RP1 Test brings test rigs, device control, recording and reliability data into one engineering project. Software 0.2.0 includes a React dashboard, PySide6 HMI, FastAPI and PostgreSQL. Hardware files cover arm, torso and leg-load rigs, alongside 18 whole-robot test methods and standalone analysis tools.
+RP1 Test brings test rigs, device control, recording and reliability data into one engineering project. Software 0.2.0 includes a React dashboard, PySide6 HMI, FastAPI and PostgreSQL. Hardware files cover arm, torso and leg-load rigs, alongside 18 whole-robot test methods.
 
 | Arm rig and quick-release mounting | Torso rig | Leg-load rig |
 | :---: | :---: | :---: |
@@ -26,7 +26,7 @@ RP1 Test brings test rigs, device control, recording and reliability data into o
 | Run or build the PLC/CAN HMI | [HMI source, mock mode and packaging](software/host/README.md) |
 | Manufacture and assemble a rig | [Hardware overview](hardware/README.md) · [Mechanical files](hardware/mechanical/README.md) |
 | Plan and record a test | [18 test methods](test-cases/README.md) · [Inspection and run record](test-cases/checklist.md) |
-| Analyze local recordings | [Offline tool and worked example](data-analysis/README.md) |
+| View archives and curves | [Platform data workflow](software/docs/data-workflow.md) |
 
 See the [documentation index](docs/README.md) for architecture, data workflows and development.
 
@@ -70,7 +70,7 @@ Select a screenshot to open its full-resolution image. The software also include
 
 <img src="docs/media/showcase/upper-body-dynamic-front.gif" width="300" alt="Upper-body dynamic test">
 
-Animations are six-second excerpts at the original speed and aspect ratio. See the [media index](docs/media/README.md) for sources and reproduction instructions.
+Animations are six-second excerpts at the original speed and aspect ratio. See the [media index](docs/media/README.md) for sources and asset details.
 
 ## Run the Software
 
@@ -95,7 +95,7 @@ CSV files and reports are recorded locally first. After verification and explici
 | [software/host/](software/host/README.md) | PLC/CAN desktop, local gateway and build tools |
 | [software/service/](software/service/README.md) · [database/](software/database/README.md) | API, central archives, workers, database and migrations |
 | [test-cases/](test-cases/README.md) | Whole-robot methods, common rules and inspection records |
-| [data-analysis/](data-analysis/README.md) · [test-runner/](software/tools/test-runner/README.md) | Offline analysis and trajectory tools |
+| [software/tools/test-runner/](software/tools/test-runner/README.md) | Optional trajectory, simulation and local recording tool |
 | [Standalone telemetry demo](software/examples/telemetry-demo/README.md) | Synthetic InfluxDB/Grafana example |
 
 For test preparation, see the [common rules](test-cases/common.md) and [parameter checklist](test-cases/open-items.md). Download the three Parasolid assemblies from [RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip); STEP files, drawings and BOMs are listed under [mechanical files](hardware/mechanical/README.md).

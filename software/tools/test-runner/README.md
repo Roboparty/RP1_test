@@ -70,4 +70,4 @@ rp1-test platform flush --base-url http://127.0.0.1:18080 --outbox .rp1-test/out
 | `artifacts.py`、`run_ingestion.py`、`api.py`、`outbox.py` | 落盘、协议转换和补传 |
 | `tests/` | 轨迹、门控、计时、落盘与演示契约验证 |
 
-在本目录运行 `python -m pytest`。演示契约测试读取 [演示 Service schema](../../examples/telemetry-demo/service/app/schemas/ingestion.py)和[演示数据库 catalog](../../examples/telemetry-demo/database/sql/020_edge_collector_ingestion.sql)。采集范围见[遥测接入](docs/telemetry-integration.md)，分析方法见 [data-analysis](../../../data-analysis/README.md)。
+在本目录运行 `python -m pytest`。演示契约测试读取 [演示 Service schema](../../examples/telemetry-demo/service/app/schemas/ingestion.py)和[演示数据库 catalog](../../examples/telemetry-demo/database/sql/020_edge_collector_ingestion.sql)。采集范围见[遥测接入](docs/telemetry-integration.md)。

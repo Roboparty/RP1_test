@@ -36,6 +36,6 @@ CSV 和报告先保存工位，核实并显式提交后集中归档，工位保�
 
 ## 可选工具
 
-[test-runner](tools/test-runner/README.md) 提供独立轨迹、仿真、回放与记录；[离线分析](../data-analysis/README.md) 分析本地运行目录。它们不属于平台/HMI 默认运行依赖。
+[test-runner](tools/test-runner/README.md) 提供独立轨迹、仿真、回放与记录，不属于平台/HMI 默认运行依赖。
 
 [telemetry-demo](examples/telemetry-demo/README.md) 集中保存独立旧遥测服务、数据库、演示客户端、InfluxDB 和 Grafana。示例使用自己的凭据、端口和数据卷，其 ingestion 不能用于当前平台正式归档。

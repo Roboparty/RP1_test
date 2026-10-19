@@ -14,13 +14,8 @@
 | `leg-load-50kg-stepping.gif`、`leg-load-50kg-rise.gif` | 50kg负载踏步/顿起.mp4 | 下肢负载演示 |
 | `upper-body-dynamic-front.gif`、`upper-body-dynamic-side.gif` | 上肢3ms跑步测试视频/视频2.mp4 | 上肢动态工况两视角 |
 
-JPEG直接复制原图。GIF为6秒原速节选，宽300px、8fps，保持画面比例和源视频显示方向，不包含音频。源文件名中的负载用于对应展示素材，不额外解释运动速度。原视频在素材目录保留，未将332MB原视频加入源仓库。
+JPEG为原图副本。GIF为6秒原速节选，宽300px、8fps，保持画面比例和源视频显示方向，不包含音频。源文件名中的负载用于对应展示素材，不额外解释运动速度。原视频不包含在源码仓库中。
 
-`showcase/manifest.json` 记录源文件名、大小、SHA256、动图区间及输出哈希。复现：
+`showcase/manifest.json` 记录源文件名、大小、SHA256、动图区间及输出哈希，供核对已提交的展示素材。
 
-```bash
-python3 scripts/build-readme-media.py --source-dir /path/to/source-media --ffmpeg /path/to/ffmpeg
-python3 scripts/build-readme-media.py --check
-```
-
-原先的 `factory-hmi.jpg`、`test-dashboard-*.jpg` 与 `arm-test.gif/leg-test.gif` 保留原路径，旧链接仍可使用。素材适用范围见 [LICENSES](../../LICENSES.md) 和 [THIRD_PARTY](../../THIRD_PARTY.md)。
+`factory-hmi.jpg`、`test-dashboard-*.jpg` 与 `arm-test.gif/leg-test.gif` 按现有路径使用。素材适用范围见 [LICENSES](../../LICENSES.md) 和 [THIRD_PARTY](../../THIRD_PARTY.md)。

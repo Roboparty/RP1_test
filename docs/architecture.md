@@ -1,6 +1,6 @@
 # 系统架构
 
-RP1 Test 包含台架、测试方法、PLC/CAN 上位机、可靠性平台和离线分析。当前平台协议为 `reliability_v1`。
+RP1 Test 包含台架、测试方法、PLC/CAN 上位机和可靠性平台。当前平台协议为 `reliability_v1`。
 
 ```text
 工位 PC：HMI ── Modbus TCP ── PLC / 电柜
@@ -22,7 +22,6 @@ RP1 Test 包含台架、测试方法、PLC/CAN 上位机、可靠性平台和离
 | `software/host/` | 本机网关、桌面、PLC/CAN 控制、记录与同步 |
 | `software/tools/test-runner/` | 可选命令行轨迹、仿真、回放和记录 |
 | `software/examples/telemetry-demo/` | 独立旧遥测演示、数据库、客户端与 InfluxDB/Grafana |
-| `data-analysis/` | 独立本地分析与合成样例 |
 
 核心平台和 HMI 不依赖 test-runner；演示客户端依赖其采集协议和队列。演示数据库在 0023 后使用另一迁移链，其卷、凭据、端口与正式平台独立。
 

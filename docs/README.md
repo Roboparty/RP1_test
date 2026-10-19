@@ -10,7 +10,6 @@
 | 开发与测试 | [开发指南](development.md) |
 | 制造与搭建台架 | [硬件](../hardware/README.md) |
 | 准备测试与执行记录 | [测试用例](../test-cases/README.md) |
-| 分析本地记录 | [离线分析](../data-analysis/README.md) |
 | 使用可选轨迹工具 | [test-runner](../software/tools/test-runner/README.md) |
 | 运行独立遥测演示 | [telemetry-demo](../software/examples/telemetry-demo/README.md) |
 | 查找截图、动图与许可 | [媒体](media/README.md) · [许可](../LICENSES.md) |

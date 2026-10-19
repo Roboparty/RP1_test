@@ -46,7 +46,7 @@
 
 ## 与软件的对应
 
-用例文档定义方法。[上位机](../software/host/README.md) 和 [test-runner](../software/tools/test-runner/README.md) 提供已配置模块的运动、轨迹回放与记录。每次运行关联用例 ID 和配置，使用 [Service](../software/service/README.md) 接入数据，使用 [离线分析](../data-analysis/README.md) 查看记录。
+用例文档定义方法。[上位机](../software/host/README.md) 和 [test-runner](../software/tools/test-runner/README.md) 提供已配置模块的运动、轨迹回放与记录。每次运行关联用例 ID 和配置；当前平台的归档、核实、审批与曲线查询见 [数据流程](../software/docs/data-workflow.md)。test-runner 的旧 ingestion 仅连接独立遥测演示。
 
 环境暴露、机械应力、人工检查与故障注入按各用例的设备和批准边界执行；软件记录是否计入有效目标，仍以对应方法为准。
 
