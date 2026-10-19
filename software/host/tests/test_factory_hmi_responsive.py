@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+import gc
 import os
+import time
 import unittest
+import weakref
 from unittest import mock
 
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QTimer
+from PySide6.QtCore import QCoreApplication, QEvent, QTimer
 from PySide6.QtWebSockets import QWebSocket
 from PySide6.QtWidgets import QApplication, QComboBox, QDialog, QLineEdit, QTextEdit
+from shiboken6 import isValid
 
-from factory_hmi.desktop.app import FactoryMainWindow
+from factory_hmi.desktop.app import FactoryMainWindow, RestWorker
 
 
 def _setup_network_without_io(window: FactoryMainWindow) -> None:
@@ -39,6 +43,42 @@ class FactoryHmiResponsiveTests(unittest.TestCase):
 
     def tearDown(self) -> None:
         self.window.deleteLater()
+
+    def test_completed_requests_release_workers_and_still_finish_callbacks(self) -> None:
+        self.window.plc_page.stop()
+        with mock.patch.object(self.window, "_run_rest"):
+            self.app.processEvents()
+        references = []
+        replies = []
+        finished = []
+
+        def make_worker(operation):
+            worker = RestWorker(operation)
+            references.append(weakref.ref(worker))
+            return worker
+
+        with mock.patch("factory_hmi.desktop.app.RestWorker", side_effect=make_worker):
+            for index in range(50):
+                self.window._run_rest(
+                    "模拟请求", lambda value=index: value, replies.append,
+                    quiet=True, on_finished=lambda: finished.append(True),
+                )
+        self.window.pool.waitForDone(2000)
+        deadline = time.monotonic() + 2
+        while len(finished) < 50 and time.monotonic() < deadline:
+            self.app.processEvents()
+        self.app.processEvents()
+        QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
+        gc.collect()
+        self.assertEqual(sorted(replies), list(range(50)))
+        self.assertEqual(len(finished), 50)
+        self.assertFalse(self.window._workers)
+        # QThreadPool may retain Python runnable wrappers; their QObject signal
+        # resources and callback connections must nevertheless be destroyed.
+        self.assertFalse(any(
+            reference() is not None and isValid(reference().signals)
+            for reference in references
+        ))
 
     def test_default_return_failure_replaces_the_moving_notice(self) -> None:
         from factory_hmi.client import GatewayHTTPError
