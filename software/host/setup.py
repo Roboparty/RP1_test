@@ -29,7 +29,6 @@ setup(
     ],
     extras_require={
         "desktop": ["PySide6"],
-        "build": ["PyInstaller"],
         "test": ["httpx", "pytest", "jsonschema"],
     },
     entry_points={

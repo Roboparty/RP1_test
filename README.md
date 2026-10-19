@@ -8,11 +8,9 @@ Test rigs · PLC/CAN HMI · Test dashboard · Data archives and analysis
 
 **English** · [简体中文](README_CN.md)
 
-[Run the software](software/README.md) · [Build a rig](hardware/README.md) · [Test methods](test-cases/README.md)
-
 </div>
 
-RP1 Test brings test rigs, device control, recording and reliability data into one engineering project. Software 0.2.0 includes a React dashboard, PySide6 HMI, FastAPI and PostgreSQL. Hardware files cover arm, torso and leg-load rigs, alongside 18 whole-robot test methods.
+RP1 Test brings test rigs, device control, recording and reliability data into one engineering project. The software includes a React dashboard, PySide6 HMI, FastAPI and PostgreSQL. Hardware files cover arm, torso and leg-load rigs, alongside 18 whole-robot test methods.
 
 | Arm rig and quick-release mounting | Torso rig | Leg-load rig |
 | :---: | :---: | :---: |
@@ -50,7 +48,7 @@ The local gateway connects to PLC/CAN devices. The desktop provides test control
 | :---: | :---: |
 | [<img src="docs/media/showcase/aging-workspace.jpg" width="520" alt="HMI aging-test workspace">](docs/media/showcase/aging-workspace.jpg) | [<img src="docs/media/showcase/motor-monitor.jpg" width="520" alt="Motor position, speed, torque, temperature and fault monitoring">](docs/media/showcase/motor-monitor.jpg) |
 
-Select a screenshot to open its full-resolution image. The software also includes verified CSV archives, review and approval, browser-based history import, viewport curve queries and comparisons across executions. See the [software guide](software/README.md).
+Select a screenshot to open its full-resolution image.
 
 ## Rig Demonstrations
 
@@ -83,20 +81,6 @@ bash scripts/up.sh
 ```
 
 Follow the [setup guide](software/README.md) to trust the site CA and open the configured HTTPS address, defaulting to `https://localhost:8443`. The HMI has a dedicated mock mode; source startup and package builds are covered in the [HMI guide](software/host/README.md).
-
-CSV files and reports are recorded locally first. After verification and explicit submission, files are archived centrally while the station retains its copy. Account permissions, live monitoring and test-data approval are separate workflows; see the [software entry point](software/README.md).
-
-## Repository Contents
-
-| Directory | Contents |
-|---|---|
-| [hardware/](hardware/README.md) | Rig models, manufacturing drawings, BOMs, electrical and assembly files |
-| [software/frontend/](software/frontend/README.md) | React test dashboard and curve workspace |
-| [software/host/](software/host/README.md) | PLC/CAN desktop, local gateway and build tools |
-| [software/service/](software/service/README.md) · [database/](software/database/README.md) | API, central archives, workers, database and migrations |
-| [test-cases/](test-cases/README.md) | Whole-robot methods, common rules and inspection records |
-| [software/tools/test-runner/](software/tools/test-runner/README.md) | Optional trajectory, simulation and local recording tool |
-| [Standalone telemetry demo](software/examples/telemetry-demo/README.md) | Synthetic InfluxDB/Grafana example |
 
 For test preparation, see the [common rules](test-cases/common.md) and [parameter checklist](test-cases/open-items.md). Download the three Parasolid assemblies from [RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip); STEP files, drawings and BOMs are listed under [mechanical files](hardware/mechanical/README.md).
 

@@ -17,9 +17,9 @@ TCP 读取成功不等于 PS1 有新反馈。`plc/freshness.py` 使用 HR29 的�
 
 PS1/通道 ON 在最终写入前检查实际 V1.2、连接与状态新鲜性、PLC/Host/MainReady、有效真实反馈、设定 Applied/无 Rejected、模拟量范围以及锁态/故障。心跳和脉冲携带的保留 ON 同样检查；同帧成功回执与故障同时出现时先处理故障。
 
-HR28 bit4/5 是人工重启锁/恢复耗尽。锁态拒绝普通 MainEnable、PS1 和通道 ON，不能发明解锁指令。全 OFF 的 PLC 控制故障复位须等待匹配的最终 ResetAckSeq/ResetResult；成功不代表 PS1 故障清除或人工锁解除。
+HR28 bit4/5 是人工重启锁/恢复耗尽。锁态拒绝普通 MainEnable、PS1 和通道 ON。协议未定义远程解锁命令，人工锁须按 PLC 现场流程解除。全 OFF 的 PLC 控制故障复位须等待匹配的最终 ResetAckSeq/ResetResult；成功不代表 PS1 故障清除或人工锁解除。
 
-HR7 是当前 ManagerState，不能用故障后一帧定位原始失败步骤；HR5 状态码也须结合实际下载源码解释。保留故障前后带时间戳的状态、HR1/HR2/HR5/HR7/HR28～31 和命令回执，不为补文档而通电复现。
+HR7 是当前 ManagerState，不能用故障后一帧定位原始失败步骤；HR5 状态码也须结合实际下载源码解释。保留故障前后带时间戳的状态、HR1/HR2/HR5/HR7/HR28～31 和命令回执。
 
 ## 主机默认时间参数
 

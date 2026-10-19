@@ -39,7 +39,7 @@ python3 host/tools/build_local_deb.py --runtime-dir /已验证运行库 \
 - PLC 使用 Modbus TCP；实际 IP、Unit ID、访问模式和现场参数须逐项核对。控制要求 V1.2，V1.0/V1.1 仅监控，见 [协议与对接](plc-integration.md)。
 - 物理电机使用 Linux SocketCAN，配置接口通过 root 所有的受限 CAN 助手和管理员认证；“连接 CAN”不等于扫描、使能或运动。
 - 平台连接填写实际 HTTPS 地址与本站 CA；数据核实和提交见 [数据流程](../../docs/data-workflow.md)。
-- Windows 原生周立功 CAN-FD 不作为现成后端提供，见 [接入要求](windows_zlg_canfd.md)。
+- 尚未实现 Windows 原生周立功 CAN-FD 后端。
 
 `--runtime-dir` 只选择依赖，不切换应用源码。安装包不自动启动硬件，升级后已有进程仍须正常退出再启动，见 [安装与运维](../../docs/operations.md)。
 

@@ -2152,7 +2152,7 @@ class FactoryMainWindow(QMainWindow):
         if isinstance(exc, GatewayError) and exc.status_code is None:
             message = (
                 f"{action}失败：本机控制服务不可用。"
-                "请联系维护员检查 rp1-factory-gateway.service。"
+                "请联系维护员检查本机网关的运行状态。"
             )
         elif action == "导入轨迹" and isinstance(exc, GatewayError):
             detail = str(exc.detail or "")

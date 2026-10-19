@@ -1,6 +1,0 @@
-[Allow RP1 Test HMI CAN configuration]
-Identity=unix-group:rp1-factory;unix-user:rp1-test-gateway
-Action=com.rp1.test-hmi.configure-can
-ResultAny=yes
-ResultInactive=yes
-ResultActive=yes

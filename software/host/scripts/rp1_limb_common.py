@@ -340,8 +340,8 @@ def create_motor_driver(entry: MotorEntry, motors_py: Any) -> Any:
     except TypeError as exc:
         if entry.backend != "socketcan":
             raise RuntimeError(
-                "the installed motors_py does not support a selectable CAN "
-                "backend; rebuild motors with the Windows/ZLG changes"
+                "the installed motors_py does not support the selected CAN "
+                "backend; physical motor connections require Linux SocketCAN"
             ) from exc
         # Backward compatibility with an already-built Linux motors_py from
         # before the optional backend argument was introduced.

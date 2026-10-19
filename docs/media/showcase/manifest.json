@@ -150,19 +150,6 @@
       "clip_duration_seconds": 6,
       "fps": 8,
       "width": 300
-    },
-    {
-      "source": "上肢3ms跑步视频2.mp4",
-      "source_bytes": 81708938,
-      "source_sha256": "24e5290beab6633007aad71773a7911f8a16cf72744f4b90051f5942d36ed372",
-      "output": "upper-body-dynamic-side.gif",
-      "output_bytes": 2795886,
-      "output_sha256": "fcab278bd53a293af7b0bd9897625ac9a7d21a7a839082e54cf70455f57be07f",
-      "transform": "Original-speed excerpt; aspect ratio and display rotation preserved; no audio",
-      "clip_start_seconds": 1,
-      "clip_duration_seconds": 6,
-      "fps": 8,
-      "width": 300
     }
   ]
 }

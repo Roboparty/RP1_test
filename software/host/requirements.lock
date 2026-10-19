@@ -3,7 +3,6 @@ PySide6_Addons==6.11.2
 PySide6_Essentials==6.11.2
 PyYAML==6.0.3
 Pygments==2.21.0
-altgraph==0.17.5
 annotated-doc==0.0.5
 annotated-types==0.8.0
 anyio==4.15.1
@@ -25,8 +24,6 @@ packaging==26.3
 pluggy==1.6.0
 pydantic==2.13.5
 pydantic_core==2.46.5
-pyinstaller==6.22.3
-pyinstaller-hooks-contrib==2026.8
 pymodbus==3.8.6
 pyroute2==0.9.6
 pytest==9.1.1

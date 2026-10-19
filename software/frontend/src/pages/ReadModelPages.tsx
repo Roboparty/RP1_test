@@ -48,7 +48,7 @@ function DurationBand({ totals }: { totals: DurationTotals }) {
       <div><span>有效暴露</span><strong>{formatDuration(totals.effective_exposure_seconds)}</strong></div>
       <div><span>排除</span><strong>{formatDuration(totals.excluded_seconds)}</strong></div>
       <div><span>待确认</span><strong>{formatDuration(totals.pending_seconds)}</strong></div>
-      <div className="active"><span>运行中 elapsed</span><strong>{formatDuration(totals.active_elapsed_seconds)}</strong></div>
+      <div className="active"><span>运行中时长</span><strong>{formatDuration(totals.active_elapsed_seconds)}</strong></div>
     </section>
   );
 }
@@ -85,9 +85,9 @@ function PerformanceTrendPanel({
   const width = 920;
   const height = 300;
   return (
-    <Panel title="跨阶段性能曲线" eyebrow="STAGE PERFORMANCE TREND" className="performance-trend-panel">
+    <Panel title="跨阶段性能曲线" className="performance-trend-panel">
       {loading ? <LoadingState /> : error ? <ErrorState error={error} retry={retry} /> : !data || !metric ? (
-        <EmptyState title="暂无连续阶段指标" description="该样品尚无满足多阶段连续观测要求的 Execution，不生成替代曲线。" />
+        <EmptyState title="暂无连续阶段指标" description="该样品尚无完整的多阶段连续观测数据。" />
       ) : (
         <>
           <div className="trend-toolbar">
@@ -134,7 +134,7 @@ function PerformanceTrendPanel({
                   <i style={{ backgroundColor: stageColors[index % stageColors.length] }} aria-hidden="true" />
                   <span>{String(series.sequence_no).padStart(2, "0")} · {series.stage_name}</span>
                   <strong>{statistics ? `${statistics.average.toFixed(2)} ${metric.unit}` : "无有效值"}</strong>
-                  <small>{statistics ? `min ${statistics.min.toFixed(2)} / max ${statistics.max.toFixed(2)} · ${statistics.count} 点` : "INVALID / MISSING 点已排除"}</small>
+                  <small>{statistics ? `最小 ${statistics.min.toFixed(2)} / 最大 ${statistics.max.toFixed(2)} · ${statistics.count} 点` : "已排除无效和缺失数据"}</small>
                 </div>
               );
             })}
@@ -186,15 +186,15 @@ export function DurationsPage({ assetKind, navigate }: { assetKind: AssetKind; n
   return (
     <>
       <PageTitle
-        eyebrow="TEST DURATION LEDGER"
+        eyebrow="时长统计"
         title={`${assetKind === "MODULE" ? "模块" : "整机"}测试时长台账`}
         trailing={data && <div className="title-status">{hasShowcase && <ShowcaseBadge />}<Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} /></div>}
       />
       <form className="filter-bar" onSubmit={submit} role="search">
-        <label>全文搜索<input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="样品或 Test Case" /></label>
+        <label>全文搜索<input value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="样品或测试用例" /></label>
         <label>样品编号<input value={assetDraft} onChange={(event) => setAssetDraft(event.target.value)} placeholder="精确编号，可留空" /></label>
-        <label>Test Case<input value={testCaseDraft} onChange={(event) => setTestCaseDraft(event.target.value)} placeholder="精确编号，可留空" /></label>
-        <label>执行状态<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="RUNNING">运行中</option><option value="COMPLETED">已完成</option><option value="BLOCKED">Blocked</option><option value="FAILED">失败</option><option value="PAUSED">暂停</option></select></label>
+        <label>测试用例<input value={testCaseDraft} onChange={(event) => setTestCaseDraft(event.target.value)} placeholder="精确编号，可留空" /></label>
+        <label>执行状态<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="">全部状态</option><option value="RUNNING">运行中</option><option value="COMPLETED">已完成</option><option value="BLOCKED">阻塞</option><option value="FAILED">失败</option><option value="PAUSED">暂停</option></select></label>
         <button type="submit"><Search aria-hidden="true" />查询</button>
       </form>
       {query.isLoading ? <LoadingState /> : !data ? (
@@ -204,12 +204,12 @@ export function DurationsPage({ assetKind, navigate }: { assetKind: AssetKind; n
           <DurationBand totals={data.totals} />
           <Panel title="按样品与用例核对">
             {items.length === 0 ? (
-              <EmptyState title="当前筛选无匹配记录" description="接口返回空集合。可清空样品或 Test Case 条件后重试。" />
+              <EmptyState title="当前筛选无匹配记录" description="可清空样品或测试用例条件后重试。" />
             ) : (
               <>
                 <div className="table-scroll">
                   <table className="data-table ledger-table">
-                    <thead><tr><th>#</th><th>Test Case</th><th>样品</th><th>状态</th><th>时长构成</th><th>有效</th><th>排除</th><th>待确认</th><th>elapsed</th><th>执行</th></tr></thead>
+                    <thead><tr><th>#</th><th>测试用例</th><th>样品</th><th>状态</th><th>时长构成</th><th>有效</th><th>排除</th><th>待确认</th><th>运行中时长</th><th>执行</th></tr></thead>
                     <tbody>
                       {items.map((item, itemIndex) => (
                         <tr key={`${item.id}-${item.asset_id}`}>
@@ -232,11 +232,26 @@ export function DurationsPage({ assetKind, navigate }: { assetKind: AssetKind; n
               </>
             )}
           </Panel>
-          <p className="semantic-note">运行中 elapsed 可按 as_of_at 计算，仅反映开放 Execution 的暂态墙钟时间；事实截止来自最近接收时间，elapsed 不写入 runtime_interval，也不自动进入正式 MTBF T。</p>
+          <p className="semantic-note">运行中时长仅供参考，不计入 MTBF 有效时长。</p>
         </>
       )}
     </>
   );
+}
+
+function mtbfStatisticsNote(item: MtbfConclusionItem): string {
+  if (item.statistical.point_estimate_status === "NOT_CALCULATED") {
+    return "尚无统计结果。";
+  }
+  if (item.statistical.point_estimate_status === "NO_EXPOSURE") {
+    return "尚无有效暴露时长，暂不形成 MTBF 估计。";
+  }
+  if (item.observed.relevant_failure_count === 0) {
+    return Object.values(item.statistical.lower_bounds_hours).some(Number.isFinite)
+      ? "暂无相关故障，仅显示单侧置信下限。"
+      : "暂无相关故障，尚无可显示的置信下限。";
+  }
+  return "结果对应本次统计截止时间。";
 }
 
 function MtbfConfidenceScale({ item }: { item: MtbfConclusionItem }) {
@@ -248,9 +263,9 @@ function MtbfConfidenceScale({ item }: { item: MtbfConclusionItem }) {
   const position = (value: number) => 34 + (value / maxValue) * 712;
   return (
     <div className="confidence-scale">
-      <header><div><span>CONFIDENCE ENVELOPE</span><h3>单侧置信下界与点估计</h3></div><small>数值直接来自后端计算快照</small></header>
+      <header><h3>单侧置信下界与点估计</h3></header>
       <svg viewBox="0 0 780 190" role="img" aria-labelledby="mtbf-scale-title">
-        <title id="mtbf-scale-title">MTBF 后端结果置信区间刻度</title>
+        <title id="mtbf-scale-title">MTBF 单侧置信下界与点估计刻度</title>
         <defs>
           <linearGradient id="confidence-fill" x1="0" x2="1">
             <stop offset="0" stopColor="var(--cyan)" stopOpacity=".2" />
@@ -270,7 +285,7 @@ function MtbfConfidenceScale({ item }: { item: MtbfConclusionItem }) {
         {lower90 !== null && <text className="bound-label" x={position(lower90)} y="47" textAnchor="middle">90% · {lower90.toFixed(1)} h</text>}
         {lower70 !== null && <text className="bound-label" x={position(lower70)} y="30" textAnchor="middle">70% · {lower70.toFixed(1)} h</text>}
         {point !== null && <g><circle className="point-dot" cx={position(point)} cy="103" r="7" /><text className="point-label" x={position(point)} y="82" textAnchor="middle">点估计 {point.toFixed(1)} h</text></g>}
-        {point === null && <text className="no-point-label" x="390" y="82" textAnchor="middle">零故障观测：未形成有限点估计</text>}
+        {point === null && <text className="no-point-label" x="390" y="82" textAnchor="middle">尚未形成点估计</text>}
       </svg>
     </div>
   );
@@ -294,44 +309,44 @@ export function MtbfPage({ assetKind }: { assetKind: AssetKind }) {
   return (
     <>
       <PageTitle
-        eyebrow="MTBF CONCLUSION CENTER"
+        eyebrow="可靠性统计"
         title={`${assetKind === "MODULE" ? "模块" : "整机"} MTBF 结论中心`}
         trailing={data && <div className="title-status">{hasShowcase && <ShowcaseBadge />}<Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} /></div>}
       />
       {query.isLoading ? <LoadingState /> : !data ? (
         <ErrorState error={query.error} retry={() => query.refetch()} />
       ) : !selected ? (
-        <EmptyState title="尚无已配置 MTBF scope" description="数据库未返回可访问的 Campaign/scope 配置，页面不会生成示例结论。" />
+        <EmptyState title="暂无可查看的 MTBF 统计范围" description="请先配置测试计划及统计范围，或联系管理员获取查看权限。" />
       ) : (
         <>
           <article className="mtbf-display">
             <header className="mtbf-command">
               <div><span>{selected.campaign_code} · {selected.scope}</span><h2>{selected.campaign_name}</h2><p>{selected.scope_name} · {selected.statistical.method}</p></div>
-              <label>Campaign / scope
+              <label>测试计划 / 统计范围
                 <select value={`${selected.campaign_id}-${selected.scope}`} onChange={(event) => setSelectedKey(event.target.value)}>
                   {items.map((item) => <option key={`${item.campaign_id}-${item.scope}`} value={`${item.campaign_id}-${item.scope}`}>{item.campaign_code} · {item.scope}</option>)}
                 </select>
               </label>
             </header>
             <section className="mtbf-kpi-band" aria-label="MTBF 核心结论">
-              <div><span>有效暴露 T</span><strong>{formatDuration(selected.observed.effective_exposure_seconds)}</strong><small>OBSERVED FACT</small></div>
-              <div><span>相关故障 r</span><strong>{selected.observed.relevant_failure_count}</strong><small>CONFIRMED GROUPS</small></div>
+              <div><span>有效暴露 T</span><strong>{formatDuration(selected.observed.effective_exposure_seconds)}</strong></div>
+              <div><span>相关故障 r</span><strong>{selected.observed.relevant_failure_count}</strong></div>
               <div className="primary"><span>MTBF 点估计</span><strong>{selected.statistical.point_estimate_hours === null ? "未形成" : `${selected.statistical.point_estimate_hours.toFixed(1)} h`}</strong><small>{selected.statistical.point_estimate_status}</small></div>
-              <div><span>90% 单侧下界</span><strong>{selected.statistical.lower_bounds_hours["0.9"] === undefined ? "尚无" : `${selected.statistical.lower_bounds_hours["0.9"].toFixed(1)} h`}</strong><small>ONE-SIDED LOWER</small></div>
+              <div><span>90% 单侧下界</span><strong>{selected.statistical.lower_bounds_hours["0.9"] === undefined ? "尚无" : `${selected.statistical.lower_bounds_hours["0.9"].toFixed(1)} h`}</strong></div>
             </section>
             <div className="mtbf-analysis-grid">
               <MtbfConfidenceScale item={selected} />
               <aside className="mtbf-decision">
-                <header><span>DECISION SUMMARY</span><StatusMark tone={selected.blockers.length ? "warning" : "normal"} label={selected.blockers.length ? `${selected.blockers.length} 个阻断` : "无已知阻断"} shape={selected.blockers.length ? "diamond" : "circle"} /></header>
-                <section><small>统计状态</small><strong>{selected.statistical.calculation_status}</strong><p>{selected.observed.relevant_failure_count === 0 ? "零故障不显示 Infinity；当前只发布后端给出的单侧下界。" : "点估计与置信下界均来自固定计算快照。"}</p></section>
-                <section><small>正式结论</small><strong>{selected.verified.status === "NOT_AVAILABLE" ? "尚无正式结论" : selected.verified.status}</strong><p>{selected.verified.published_at ? `发布于 ${formatDate(selected.verified.published_at)}` : "实时统计不会自动升级为正式发布。"}</p></section>
+                <header><span>结论摘要</span><StatusMark tone={selected.blockers.length ? "warning" : "normal"} label={selected.blockers.length ? `${selected.blockers.length} 个阻断` : "无已知阻断"} shape={selected.blockers.length ? "diamond" : "circle"} /></header>
+                <section><small>统计状态</small><strong>{selected.statistical.calculation_status}</strong><p>{mtbfStatisticsNote(selected)}</p></section>
+                <section><small>正式结论</small><strong>{selected.verified.status === "NOT_AVAILABLE" ? "尚无正式结论" : selected.verified.status}</strong><p>{selected.verified.published_at ? `发布于 ${formatDate(selected.verified.published_at)}` : "当前统计结果尚未正式发布。"}</p></section>
                 <section className="blocker-list"><small>阻断因素</small>{selected.blockers.length ? selected.blockers.map((blocker) => <span key={blocker}>{blocker}</span>) : <span className="clear">当前未记录阻断项</span>}</section>
               </aside>
             </div>
             <footer className="semantic-layers">
-              <div><span>01 · OBSERVED</span><strong>观测事实</strong><small>暴露、故障与排除事实</small></div>
-              <div><span>02 · STATISTICAL</span><strong>统计输出</strong><small>方法、点估计与置信下界</small></div>
-              <div><span>03 · VERIFIED</span><strong>正式验证</strong><small>独立审核与发布状态</small></div>
+              <div><span>01</span><strong>观测事实</strong><small>暴露、故障与排除事实</small></div>
+              <div><span>02</span><strong>统计输出</strong><small>方法、点估计与置信下界</small></div>
+              <div><span>03</span><strong>正式验证</strong><small>结论状态与发布时间</small></div>
               <Cutoff value={selected.observed.data_cutoff_at} asOf={data.as_of_at} />
             </footer>
           </article>
@@ -408,7 +423,7 @@ export function AssetsPage({
   const loadError = showPartDirectory ? directory.error : query.error;
   return (
     <>
-      <PageTitle eyebrow="ASSET FLEET / STATUS WALL" title={part ? `${targetPartNames[part]} / ${part} 样品` : `${assetKind === "MODULE" ? "模块" : "整机"}样品中心`} trailing={data && <div className="title-status">{hasShowcase && <ShowcaseBadge />}<Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} /></div>} />
+      <PageTitle eyebrow="样品管理" title={part ? `${targetPartNames[part]} / ${part} 样品` : `${assetKind === "MODULE" ? "模块" : "整机"}样品中心`} trailing={data && <div className="title-status">{hasShowcase && <ShowcaseBadge />}<Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} /></div>} />
       <AssetCreateForm key={assetKind} assetKind={assetKind} />
       {part && <div className="active-part-filter"><span>部位筛选：{targetPartNames[part]} / {part}</span><button type="button" onClick={clearPart}>清除筛选</button></div>}
       <form className="filter-bar" role="search" onSubmit={(event) => { event.preventDefault(); setSearch(draft.trim()); }}>
@@ -423,7 +438,7 @@ export function AssetsPage({
         />
       ) : (
         <Panel className="fleet-panel" title={showPartDirectory ? "按部位浏览" : part ? `${targetPartNames[part]}部位样品` : "整机样品"}>
-          {items.length === 0 && !showPartDirectory ? <EmptyState title={part ? `没有可见的${targetPartNames[part]}样品` : "没有匹配样品"} description="未返回任何可访问样品；请检查筛选和 Campaign 授权。" /> : (
+          {items.length === 0 && !showPartDirectory ? <EmptyState title={part ? `没有可见的${targetPartNames[part]}样品` : "没有匹配样品"} description="请检查筛选条件和测试计划授权。" /> : (
             <>
               {showPartDirectory ? (
                 <div className="asset-part-directory">
@@ -497,18 +512,18 @@ export function AssetDetailPage({ id, navigate }: { id: string; navigate: Naviga
   return (
     <>
       <BackButton onClick={() => navigate("assets")} />
-      <PageTitle eyebrow="ASSET DOSSIER" title={`${data.asset.code} · ${data.asset.name}`} description={`${data.asset.asset_kind === "MODULE" ? "模块" : "整机"} · ${data.asset.product_family} · ${data.asset.serial_number}`} trailing={<div className="title-status">{(isShowcaseValue(data.asset.batch_code) || isShowcaseValue(data.asset.current_execution_code)) && <ShowcaseBadge />}<StatusMark tone={data.asset.lifecycle_status === "ACTIVE" ? "normal" : "muted"} label={data.asset.lifecycle_status} /></div>} />
+      <PageTitle eyebrow="样品档案" title={`${data.asset.code} · ${data.asset.name}`} description={`${data.asset.asset_kind === "MODULE" ? "模块" : "整机"} · ${data.asset.product_family} · ${data.asset.serial_number}`} trailing={<div className="title-status">{(isShowcaseValue(data.asset.batch_code) || isShowcaseValue(data.asset.current_execution_code)) && <ShowcaseBadge />}<StatusMark tone={data.asset.lifecycle_status === "ACTIVE" ? "normal" : "muted"} label={data.asset.lifecycle_status} /></div>} />
       <DurationBand totals={data.asset.durations} />
       <Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} />
       <div className="detail-columns">
-        <Panel title="当前上下文" eyebrow="CURRENT CONTEXT">
+        <Panel title="当前上下文">
           {!data.current_context.execution_id ? (
-            <EmptyState title="当前没有活跃执行" description="仅 RUNNING、PAUSED 或 BLOCKED Execution 会进入当前上下文；历史执行请见下方账本。" />
+            <EmptyState title="当前没有活跃执行" description="这里显示运行中、暂停或阻塞的执行；历史记录见下方执行记录。" />
           ) : (
-            <dl className="fact-grid"><div><dt>Campaign / Cycle</dt><dd>{data.current_context.campaign_code ?? "无"} / {data.current_context.cycle_code ?? "无"}</dd></div><div><dt>Execution</dt><dd>{data.current_context.execution_code ?? "无"}</dd></div><div><dt>Test Case</dt><dd>{data.current_context.test_case_code ?? "无"}</dd></div><div><dt>Stage</dt><dd>{data.current_context.stage_name ?? "无"}</dd></div><div><dt>elapsed</dt><dd>{formatDuration(data.current_context.current_elapsed_seconds)}</dd></div><div><dt>心跳</dt><dd>{data.current_context.is_stale ? "延迟" : "正常"}</dd></div></dl>
+            <dl className="fact-grid"><div><dt>测试计划 / 周期</dt><dd>{data.current_context.campaign_code ?? "无"} / {data.current_context.cycle_code ?? "无"}</dd></div><div><dt>执行记录</dt><dd>{data.current_context.execution_code ?? "无"}</dd></div><div><dt>测试用例</dt><dd>{data.current_context.test_case_code ?? "无"}</dd></div><div><dt>阶段</dt><dd>{data.current_context.stage_name ?? "无"}</dd></div><div><dt>运行中时长</dt><dd>{formatDuration(data.current_context.current_elapsed_seconds)}</dd></div><div><dt>心跳</dt><dd>{data.current_context.is_stale ? "延迟" : "正常"}</dd></div></dl>
           )}
         </Panel>
-        <Panel title="配置 / 健康 / 证据" eyebrow="TRACEABILITY">
+        <Panel title="配置 / 健康 / 证据">
           <dl className="fact-grid"><div><dt>配置指纹</dt><dd>{data.configuration.fingerprint ?? "未冻结"}</dd></div><div><dt>可靠性影响</dt><dd>{data.configuration.reliability_impact ?? "未知"}</dd></div><div><dt>执行 / 事件</dt><dd>{data.execution_count} / {data.event_count}</dd></div><div><dt>证据可用</dt><dd>{data.evidence_summary.available_count} / {data.evidence_summary.total_count}</dd></div></dl>
         </Panel>
       </div>
@@ -518,7 +533,7 @@ export function AssetDetailPage({ id, navigate }: { id: string; navigate: Naviga
         error={trends.error}
         retry={() => void trends.refetch()}
       />
-      <Panel title="执行记录" eyebrow="EXECUTIONS">
+      <Panel title="执行记录">
         {executions.isLoading ? <LoadingState /> : !executions.data ? <ErrorState error={executions.error} retry={() => executions.refetch()} /> : (
           <>
             <ExecutionTable items={executionItems} navigate={navigate} />
@@ -526,8 +541,8 @@ export function AssetDetailPage({ id, navigate }: { id: string; navigate: Naviga
           </>
         )}
       </Panel>
-      <Panel title="事件时间线" eyebrow="EVENT LEDGER">
-        {events.isLoading ? <LoadingState /> : !events.data ? <ErrorState error={events.error} retry={() => events.refetch()} /> : eventItems.length === 0 ? <EmptyState title="尚无事件记录" description="事件账本返回空集合，未生成替代时间线。" /> : (
+      <Panel title="事件时间线">
+        {events.isLoading ? <LoadingState /> : !events.data ? <ErrorState error={events.error} retry={() => events.refetch()} /> : eventItems.length === 0 ? <EmptyState title="尚无事件记录" description="该样品暂无事件记录。" /> : (
           <>
             <ol className="timeline">{eventItems.map((event) => <li key={event.id}><time>{formatDate(event.normalized_time)}</time><strong>{event.event_type}</strong><span>{event.interruption_classification ?? event.data_quality}</span></li>)}</ol>
             <LoadMore hasMore={Boolean(events.hasNextPage)} loading={events.isFetchingNextPage} failed={events.isFetchNextPageError} onLoad={() => void events.fetchNextPage()} />
@@ -539,8 +554,8 @@ export function AssetDetailPage({ id, navigate }: { id: string; navigate: Naviga
 }
 
 function ExecutionTable({ items, navigate }: { items: ExecutionListItem[]; navigate: Navigate }) {
-  if (items.length === 0) return <EmptyState title="尚无执行记录" description="当前范围没有可访问的 Execution。" />;
-  return <div className="table-scroll"><table className="data-table"><thead><tr><th>Execution</th><th>Test Case</th><th>样品</th><th>状态</th><th>起止</th><th>闭合时长</th><th>elapsed</th><th>质量</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><button className="link-button" type="button" onClick={() => navigate("execution", item.id)}>{item.code}<ExternalLink aria-hidden="true" /></button></td><td><button className="link-button" type="button" onClick={() => navigate("test-case", item.test_case_code)}>{item.test_case_code}</button></td><td>{item.asset_code}</td><td><StatusMark tone={item.status === "RUNNING" ? "normal" : item.status === "FAILED" || item.status === "BLOCKED" ? "danger" : "muted"} label={item.status} /></td><td>{formatDate(item.started_at)}<small>{formatDate(item.ended_at)}</small></td><td>{formatDuration(item.closed_duration_seconds)}</td><td>{formatDuration(item.active_elapsed_seconds)}</td><td>{item.data_quality} / {item.clock_quality}</td></tr>)}</tbody></table></div>;
+  if (items.length === 0) return <EmptyState title="尚无执行记录" description="当前范围内暂无执行记录。" />;
+  return <div className="table-scroll"><table className="data-table"><thead><tr><th>执行记录</th><th>测试用例</th><th>样品</th><th>状态</th><th>起止</th><th>闭合时长</th><th>运行中时长</th><th>质量</th></tr></thead><tbody>{items.map((item) => <tr key={item.id}><td><button className="link-button" type="button" onClick={() => navigate("execution", item.id)}>{item.code}<ExternalLink aria-hidden="true" /></button></td><td><button className="link-button" type="button" onClick={() => navigate("test-case", item.test_case_code)}>{item.test_case_code}</button></td><td>{item.asset_code}</td><td><StatusMark tone={item.status === "RUNNING" ? "normal" : item.status === "FAILED" || item.status === "BLOCKED" ? "danger" : "muted"} label={item.status} /></td><td>{formatDate(item.started_at)}<small>{formatDate(item.ended_at)}</small></td><td>{formatDuration(item.closed_duration_seconds)}</td><td>{formatDuration(item.active_elapsed_seconds)}</td><td>{item.data_quality} / {item.clock_quality}</td></tr>)}</tbody></table></div>;
 }
 
 export function TestCaseDetailPage({ id, navigate }: { id: string; navigate: Navigate }) {
@@ -561,15 +576,15 @@ export function TestCaseDetailPage({ id, navigate }: { id: string; navigate: Nav
   return (
     <>
       <BackButton onClick={() => returnToPreviousPage(navigate)} label="返回上一页" />
-      <PageTitle eyebrow="TEST CASE DOSSIER" title={`${data.code} · ${data.name}`} description={`${data.asset_kind === "MODULE" ? "模块" : "整机"} · 适用部位：${data.target_part_name ?? "未绑定"} · ${data.domain} · 版本 ${data.latest_version ?? "未发布"}`} trailing={<div className="title-status">{isShowcaseValue(data.code) && <ShowcaseBadge />}<Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} /></div>} />
+      <PageTitle eyebrow="测试用例" title={`${data.code} · ${data.name}`} description={`${data.asset_kind === "MODULE" ? "模块" : "整机"} · 适用部位：${data.target_part_name ?? "未绑定"} · ${data.domain} · 版本 ${data.latest_version ?? "未发布"}`} trailing={<div className="title-status">{isShowcaseValue(data.code) && <ShowcaseBadge />}<Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} /></div>} />
       <DurationBand totals={data.durations} />
       <div className="detail-columns">
-        <Panel title="状态统计" eyebrow="EXECUTION STATUS"><dl className="fact-grid">{Object.entries(data.status_counts).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></Panel>
-        <Panel title="MTBF 观察口径" eyebrow="OBSERVED ONLY">
-          {!mtbf ? <EmptyState title="尚无观察结果" description="没有可用于后端观察计算的事实。" /> : <dl className="fact-grid"><div><dt>有效 T</dt><dd>{formatDuration(mtbf.effective_exposure_seconds)}</dd></div><div><dt>相关故障 r</dt><dd>{mtbf.relevant_failure_count}</dd></div><div><dt>点估计</dt><dd>{mtbf.point_estimate_hours === null ? "未形成有限点估计" : `${mtbf.point_estimate_hours.toFixed(2)} h`}</dd></div><div><dt>90% 单侧下界</dt><dd>{mtbf.lower_bounds_hours["0.9"] === undefined ? "尚无" : `${mtbf.lower_bounds_hours["0.9"].toFixed(2)} h`}</dd></div></dl>}
+        <Panel title="状态统计"><dl className="fact-grid">{Object.entries(data.status_counts).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{value}</dd></div>)}</dl></Panel>
+        <Panel title="MTBF 观察口径">
+          {!mtbf ? <EmptyState title="尚无观察结果" description="当前范围尚无可用于 MTBF 计算的数据。" /> : <dl className="fact-grid"><div><dt>有效 T</dt><dd>{formatDuration(mtbf.effective_exposure_seconds)}</dd></div><div><dt>相关故障 r</dt><dd>{mtbf.relevant_failure_count}</dd></div><div><dt>点估计</dt><dd>{mtbf.point_estimate_hours === null ? "未形成有限点估计" : `${mtbf.point_estimate_hours.toFixed(2)} h`}</dd></div><div><dt>90% 单侧下界</dt><dd>{mtbf.lower_bounds_hours["0.9"] === undefined ? "尚无" : `${mtbf.lower_bounds_hours["0.9"].toFixed(2)} h`}</dd></div></dl>}
         </Panel>
       </div>
-      <Panel title="Execution 列表" eyebrow="EXECUTION LEDGER">
+      <Panel title="执行记录">
         <ExecutionTable items={executionItems} navigate={navigate} />
         {executionItems.length > 0 && <LoadMore hasMore={Boolean(query.hasNextPage)} loading={query.isFetchingNextPage} failed={query.isFetchNextPageError} onLoad={() => void query.fetchNextPage()} />}
       </Panel>
@@ -586,11 +601,11 @@ export function ExecutionDetailPage({ id, navigate }: { id: string; navigate: Na
   return (
     <>
       <BackButton onClick={() => returnToPreviousPage(navigate)} label="返回上一页" />
-      <PageTitle eyebrow="EXECUTION DATA & ANALYSIS" title={execution.code} description={`${execution.test_case_code} · ${execution.asset_code} · ${execution.campaign_code}`} trailing={<div className="title-status">{isShowcaseValue(execution.campaign_code) && <ShowcaseBadge />}<StatusMark tone={execution.status === "RUNNING" ? "normal" : execution.status === "FAILED" || execution.status === "BLOCKED" ? "danger" : "muted"} label={execution.status} /></div>} />
+      <PageTitle eyebrow="执行记录" title={execution.code} description={`${execution.test_case_code} · ${execution.asset_code} · ${execution.campaign_code}`} trailing={<div className="title-status">{isShowcaseValue(execution.campaign_code) && <ShowcaseBadge />}<StatusMark tone={execution.status === "RUNNING" ? "normal" : execution.status === "FAILED" || execution.status === "BLOCKED" ? "danger" : "muted"} label={execution.status} /></div>} />
       <button type="button" className="archive-curve-link" onClick={() => navigate("curves", execution.id)}>打开归档详细曲线</button>
       <section className="metric-strip">
         <div><span>闭合时长</span><strong>{formatDuration(execution.closed_duration_seconds)}</strong></div>
-        <div><span>运行中 elapsed</span><strong>{formatDuration(execution.active_elapsed_seconds)}</strong></div>
+        <div><span>运行中时长</span><strong>{formatDuration(execution.active_elapsed_seconds)}</strong></div>
         {data.result && <div><span>测试结论</span><strong>{executionOutcomeNames[data.result.outcome]}</strong></div>}
         {data.result && <div><span>结束方式</span><strong>{terminationNames[data.result.termination_kind]}</strong></div>}
         {data.peak_summary.length === 0 && <div><span>峰值摘要</span><strong>暂无指标观测</strong></div>}
@@ -599,13 +614,13 @@ export function ExecutionDetailPage({ id, navigate }: { id: string; navigate: Na
       {data.result && <ExecutionResultSummary result={data.result} />}
       <JointRecordPanel records={data.joint_records ?? []} />
       <JointAnalysisPanel executionId={id} />
-      <Panel title="执行元数据" eyebrow="CONTEXT"><dl className="fact-grid"><div><dt>Test Case</dt><dd><button className="link-button" type="button" onClick={() => navigate("test-case", execution.test_case_code)}>{execution.test_case_code}</button></dd></div><div><dt>样品</dt><dd><button className="link-button" type="button" onClick={() => navigate("asset", execution.asset_code)}>{execution.asset_code}</button></dd></div><div><dt>台架</dt><dd>{data.station_code ?? "未记录"} · {data.station_name ?? "—"}</dd></div><div><dt>执行人</dt><dd>{data.operator_name ?? data.result?.executor_display ?? "未记录"}</dd></div><div><dt>数据源</dt><dd>{data.source_code ?? "未记录"}</dd></div><div><dt>配置指纹</dt><dd>{data.configuration.fingerprint ?? "未记录"}</dd></div></dl></Panel>
-      <Panel title="逐关节 / 指标表" eyebrow="METRIC OBSERVATIONS">
-        {data.metrics.length === 0 ? <EmptyState title="尚无指标观测" description="PostgreSQL 中没有关联到该 Execution 的 MetricObservation；未显示推测峰值。" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>关节</th><th>指标</th><th>值</th><th>时间</th><th>质量</th><th>正式证据资格</th></tr></thead><tbody>{data.metrics.map((metric) => <tr key={metric.id}><td>{metric.joint ?? "全局"}</td><td>{metric.metric_code}<small>{metric.metric_name}</small></td><td>{metric.value ?? metric.text_value ?? "缺失"} {metric.unit}</td><td>{formatDate(metric.observed_at)}</td><td>{metric.quality_status}</td><td>{metric.formal_eligible ? "具备" : "不具备"}</td></tr>)}</tbody></table></div>}
+      <Panel title="执行元数据"><dl className="fact-grid"><div><dt>测试用例</dt><dd><button className="link-button" type="button" onClick={() => navigate("test-case", execution.test_case_code)}>{execution.test_case_code}</button></dd></div><div><dt>样品</dt><dd><button className="link-button" type="button" onClick={() => navigate("asset", execution.asset_code)}>{execution.asset_code}</button></dd></div><div><dt>台架</dt><dd>{data.station_code ?? "未记录"} · {data.station_name ?? "—"}</dd></div><div><dt>执行人</dt><dd>{data.operator_name ?? data.result?.executor_display ?? "未记录"}</dd></div><div><dt>数据源</dt><dd>{data.source_code ?? "未记录"}</dd></div><div><dt>配置指纹</dt><dd>{data.configuration.fingerprint ?? "未记录"}</dd></div></dl></Panel>
+      <Panel title="逐关节 / 指标表">
+        {data.metrics.length === 0 ? <EmptyState title="尚无指标观测" description="该执行记录暂无关联指标数据。" /> : <div className="table-scroll"><table className="data-table"><thead><tr><th>关节</th><th>指标</th><th>值</th><th>时间</th><th>质量</th><th>正式证据资格</th></tr></thead><tbody>{data.metrics.map((metric) => <tr key={metric.id}><td>{metric.joint ?? "全局"}</td><td>{metric.metric_code}<small>{metric.metric_name}</small></td><td>{metric.value ?? metric.text_value ?? "缺失"} {metric.unit}</td><td>{formatDate(metric.observed_at)}</td><td>{metric.quality_status}</td><td>{metric.formal_eligible ? "具备" : "不具备"}</td></tr>)}</tbody></table></div>}
       </Panel>
       <div className="detail-columns">
-        <Panel title="数据质量" eyebrow="QUALITY"><pre className="json-block">{JSON.stringify(data.data_quality_summary, null, 2)}</pre></Panel>
-        <Panel title="证据摘要" eyebrow="EVIDENCE">{data.evidence.length === 0 ? <EmptyState title="尚无证据文件" description="没有关联 Artifact，原始文件不可推测。" /> : <ul className="evidence-list">{data.evidence.map((item) => <li key={item.id}><strong>{item.file_name}</strong><span>{item.kind} · {item.availability_status}</span></li>)}</ul>}</Panel>
+        <Panel title="数据质量"><pre className="json-block">{JSON.stringify(data.data_quality_summary, null, 2)}</pre></Panel>
+        <Panel title="证据摘要">{data.evidence.length === 0 ? <EmptyState title="尚无证据文件" description="该执行记录尚未关联证据文件。" /> : <ul className="evidence-list">{data.evidence.map((item) => <li key={item.id}><strong>{item.file_name}</strong><span>{item.kind} · {item.availability_status}</span></li>)}</ul>}</Panel>
       </div>
       <Cutoff value={data.data_cutoff_at} asOf={data.as_of_at} />
     </>
@@ -637,7 +652,7 @@ function importedNarrative(value: string) {
 function ExecutionResultSummary({ result }: { result: ExecutionResult }) {
   const outcomeTone = result.outcome === "PASSED" ? "normal" : result.outcome === "FAILED" ? "danger" : result.outcome === "INCONCLUSIVE" ? "warning" : "muted";
   return (
-    <Panel className="execution-result-panel" title="执行结论" eyebrow="RESULT & TERMINATION">
+    <Panel className="execution-result-panel" title="执行结论">
       <div className="execution-result-heading">
         <StatusMark tone={outcomeTone} label={executionOutcomeNames[result.outcome]} />
         <span>{terminationNames[result.termination_kind]}</span>

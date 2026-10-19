@@ -8,11 +8,9 @@
 
 [English](README.md) · **简体中文**
 
-[运行软件](software/README.md) · [搭建台架](hardware/README.md) · [测试方法](test-cases/README.md)
-
 </div>
 
-RP1 Test 将台架、设备控制、过程记录和可靠性数据放在同一套工程中。软件 0.2.0 包含 React 测试大屏、PySide6 上位机、FastAPI 与 PostgreSQL；硬件资料覆盖手臂、胸腔和腿部负载台架，配套 18 项整机测试方法。
+RP1 Test 将台架、设备控制、过程记录和可靠性数据放在同一套工程中。软件包含 React 测试大屏、PySide6 上位机、FastAPI 与 PostgreSQL；硬件资料覆盖手臂、胸腔和腿部负载台架，配套 18 项整机测试方法。
 
 | 手臂台架与快拆结构 | 胸腔台架 | 腿部负载台架 |
 | :---: | :---: | :---: |
@@ -50,7 +48,7 @@ RP1 Test 将台架、设备控制、过程记录和可靠性数据放在同一�
 | :---: | :---: |
 | [<img src="docs/media/showcase/aging-workspace.jpg" width="520" alt="上位机老化测试工作区">](docs/media/showcase/aging-workspace.jpg) | [<img src="docs/media/showcase/motor-monitor.jpg" width="520" alt="电机位置、速度、力矩、温度及故障监控">](docs/media/showcase/motor-monitor.jpg) |
 
-截图可点击查看原图。新版还包括中央 CSV 归档、核实审批、网页历史导入、视窗曲线查询和多执行比较，入口见 [软件说明](software/README.md)。
+截图可点击查看原图。
 
 ## 台架运行演示
 
@@ -83,20 +81,6 @@ bash scripts/up.sh
 ```
 
 按 [软件安装说明](software/README.md) 信任本站 CA，访问配置的 HTTPS 地址，默认 `https://localhost:8443`。HMI 可使用专用 mock 模式启动，源码运行与安装包构建见 [上位机说明](software/host/README.md)。
-
-工位先保存 CSV 和报告，核实并显式提交后归档至平台，工位保留副本。账号权限、在线监控和测试数据审批各自独立；详细流程见 [软件入口](software/README.md)。
-
-## 仓库内容
-
-| 目录 | 内容 |
-|---|---|
-| [hardware/](hardware/README.md) | 台架模型、加工图纸、BOM、电气和装配资料 |
-| [software/frontend/](software/frontend/README.md) | React 测试大屏与曲线工作区 |
-| [software/host/](software/host/README.md) | PLC/CAN 上位机、本机网关及构建工具 |
-| [software/service/](software/service/README.md) · [database/](software/database/README.md) | API、中央归档、Worker、数据库与迁移 |
-| [test-cases/](test-cases/README.md) | 整机方法、公共规则及执行检查表 |
-| [software/tools/test-runner/](software/tools/test-runner/README.md) | 可选轨迹、仿真与本地记录工具 |
-| [独立遥测演示](software/examples/telemetry-demo/README.md) | InfluxDB/Grafana 合成示例 |
 
 测试准备参见 [公共规则](test-cases/common.md) 和 [参数清单](test-cases/open-items.md)。三个 Parasolid 总装模型下载：[RP1_Test_Parasolid_CAD.zip](https://github.com/Roboparty/rp1_test/releases/download/v0.1.0/RP1_Test_Parasolid_CAD.zip)；STEP、图纸和 BOM 见 [机械资料](hardware/mechanical/README.md)。
 

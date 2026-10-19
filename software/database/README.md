@@ -35,7 +35,7 @@ Worker 用 `FOR UPDATE SKIP LOCKED` 领取重算任务，保留输入/输出快�
 
 ## 升级与检查
 
-独立 [遥测演示](../examples/telemetry-demo/README.md) 在 0023 后使用另一迁移链。新平台使用新项目、新卷，已有平台先备份并在隔离恢复副本验证，见 [运维](../docs/operations.md)。
+已有平台升级前先备份，并在隔离恢复副本验证，见 [运维](../docs/operations.md)。
 
 ```bash
 cd software/database

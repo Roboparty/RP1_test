@@ -37,4 +37,4 @@ python3 -m venv .venv-hmi
 | `scripts/`、`factory_hmi/config/` | 采样与设备配置模板 |
 | `tools/`、`packaging/`、`motors/` | 构建、安装入口和 SDK 源码 |
 
-安装包输出至 `host/dist/`，二进制通过 Releases 分发。HMI 有独立控制与记录实现，不依赖可选 test-runner。软件检查、构建或安装不授权启动真实 PLC/CAN。
+安装包输出至 `host/dist/`，二进制通过 Releases 分发。HMI 独立完成设备控制和本地记录。软件检查、构建或安装不授权启动真实 PLC/CAN。

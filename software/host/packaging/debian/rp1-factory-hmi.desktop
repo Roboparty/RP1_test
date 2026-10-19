@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=RP1 Test HMI (PLC)
-Comment=Operate and monitor the isolated RP1 PLC aging cabinet
-Exec=/opt/rp1-test-hmi/desktop/rp1-factory-desktop --gateway-url http://127.0.0.1:8766
-Icon=rp1-test-hmi
-Terminal=false
-Categories=Utility;Engineering;
-StartupNotify=true

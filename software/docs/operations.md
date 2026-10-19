@@ -1,6 +1,6 @@
 # 安装与运维
 
-适用于 `reliability_v1` 平台与 Ubuntu 24.04 amd64 上位机。平台命令从 `software/` 执行。独立遥测演示有自己的部署、账号和数据卷，见 [telemetry-demo](../examples/telemetry-demo/README.md)。
+适用于 `reliability_v1` 平台与 Ubuntu 24.04 amd64 上位机。平台命令从 `software/` 执行。
 
 ## 首次安装
 
@@ -58,7 +58,7 @@ python3 scripts/verify.py
 
 ## 平台升级与证书
 
-固定目标提交或标签，先备份，再在隔离恢复副本验证完整迁移、历史读取与审批。平台、前端、数据库及 Worker 配套升级，不能重新开放旧 ingestion。旧演示数据库在 0023 后分叉，不能直接作为当前平台升级源。
+固定目标提交或标签，先备份，再在隔离恢复副本验证完整迁移、历史读取与审批。平台、前端、数据库及 Worker 配套升级，不能重新开放旧 ingestion。
 
 正式切换执行 `bash scripts/up.sh`。不可逆业务规则的回退通过已校验备份恢复到新项目，核对切换后的新写入；不要盲目 downgrade 或删除审批历史。
 

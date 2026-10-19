@@ -20,7 +20,7 @@ def copy_documentation(destination: Path) -> None:
     documents = {SOURCE / "README.md": "README.zh_CN.md"}
     for name in ("build.md", "plc-integration.md", "MOTOR_FAULT_RECOVERY.md",
                  "HOST_MODBUS_TCP_PROTOCOL_V1.0.md", "HOST_MODBUS_TCP_PROTOCOL_V1.1.md",
-                 "HOST_MODBUS_TCP_PROTOCOL_V1.2.md", "windows_zlg_canfd.md"):
+                 "HOST_MODBUS_TCP_PROTOCOL_V1.2.md"):
         documents[SOURCE / "docs" / name] = name
     for name in ("operations.md", "data-workflow.md"):
         documents[SOURCE.parent / "docs" / name] = name
@@ -55,8 +55,6 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, default=SOURCE / "dist")
     parser.add_argument("--version", default="", help="Debian version; default is packaging/LOCAL_VERSION")
     parser.add_argument("--platform-url", default="", help="Dashboard URL written only into this package's launcher")
-    parser.add_argument("--python-binary", type=Path, help="Interpreter copied into the package and used instead of system python3")
-    parser.add_argument("--depends-profile", choices=("noble", "jammy"), default="noble")
     parser.add_argument("--native-provenance", type=Path, help="SDK provenance JSON for this runtime")
     parser.add_argument("--stage-only", action="store_true", help="Assemble and inspect the payload without compressing a deb")
     args = parser.parse_args()
@@ -104,16 +102,7 @@ def main() -> None:
     shutil.copytree(runtime, app / "runtime", symlinks=True)
     binary = package / "usr/bin/rp1-test-hmi"
     binary.parent.mkdir(parents=True)
-    if args.python_binary:
-        bundled_python = app / "python3.12"
-        shutil.copy2(args.python_binary.expanduser().resolve(strict=True), bundled_python)
-        binary.write_text(
-            '#!/bin/sh\n'
-            'export LD_LIBRARY_PATH="/opt/rp1-test-hmi/runtime${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"\n'
-            'exec /opt/rp1-test-hmi/python3.12 /opt/rp1-test-hmi/user_launcher.py "$@"\n'
-        )
-    else:
-        binary.write_text('#!/bin/sh\nexec /usr/bin/python3 /opt/rp1-test-hmi/user_launcher.py "$@"\n')
+    binary.write_text('#!/bin/sh\nexec /usr/bin/python3 /opt/rp1-test-hmi/user_launcher.py "$@"\n')
     desktop = package / "usr/share/applications/rp1-test-hmi.desktop"
     desktop.parent.mkdir(parents=True)
     shutil.copy2(SOURCE / "packaging/rp1-test-hmi.desktop", desktop)
@@ -128,7 +117,7 @@ def main() -> None:
     shutil.copy2(SOURCE / "packaging/com.rp1.test-hmi.can.policy", polkit)
     icon = package / "usr/share/icons/hicolor/512x512/apps/rp1-test-hmi.png"
     icon.parent.mkdir(parents=True)
-    shutil.copy2(SOURCE / "packaging/debian/rp1-factory-hmi.png", icon)
+    shutil.copy2(SOURCE / "packaging/rp1-test-hmi.png", icon)
     doc = package / "usr/share/doc/rp1-test-hmi"
     doc.mkdir(parents=True)
     shutil.copytree(SOURCE / "third-party-licenses", doc / "third-party-licenses")
@@ -150,7 +139,7 @@ Priority: optional
 Architecture: amd64
 Installed-Size: {installed_size}
 Maintainer: RP1 Test SHN
-Depends: {("iproute2, policykit-1, ca-certificates, libxcb-icccm4, libxcb-keysyms1, libxcb-shape0, libxcb-xinerama0, libxkbcommon-x11-0, libegl1, libgl1, libfontconfig1, libdbus-1-3, fonts-noto-cjk, zlib1g, libexpat1" if args.depends_profile == "jammy" else "python3 (>= 3.12), python3 (<< 3.13), python3-yaml, iproute2, pkexec, polkitd, ca-certificates, libxcb-cursor0, libxcb-icccm4, libxcb-keysyms1, libxcb-shape0, libxcb-xinerama0, libxkbcommon-x11-0, libegl1, libgl1, libfontconfig1, libdbus-1-3, fonts-noto-cjk")}
+Depends: python3 (>= 3.12), python3 (<< 3.13), python3-yaml, iproute2, pkexec, polkitd, ca-certificates, libxcb-cursor0, libxcb-icccm4, libxcb-keysyms1, libxcb-shape0, libxcb-xinerama0, libxkbcommon-x11-0, libegl1, libgl1, libfontconfig1, libdbus-1-3, fonts-noto-cjk
 Description: RP1 Modbus TCP PLC and physical SocketCAN HMI
  Protocol V1.2 control with V1.0 and V1.1 monitoring only.
  Motor fault reset requires fresh feedback and keeps motors disabled.
@@ -163,7 +152,7 @@ Description: RP1 Modbus TCP PLC and physical SocketCAN HMI
  Installation does not start hardware or configure CAN.
 """)
     (debian / "md5sums").write_text("".join(f"{hashlib.md5(p.read_bytes()).hexdigest()}  {p.relative_to(package)}\n" for p in files))
-    executables = {binary, app / "launch.py", app / "python3.12", target_source / "packaging/can-disabled", helper,
+    executables = {binary, app / "launch.py", target_source / "packaging/can-disabled", helper,
                    target_source / "packaging/can-helper"}
     for p in [package, *package.rglob("*")]:
         if p.is_symlink():
